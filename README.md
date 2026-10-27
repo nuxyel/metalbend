@@ -27,16 +27,16 @@ The workloads import my published BendHub packages at pinned versions (`bend-ml-
 | Workload | What | C target |
 |---|---|---|
 | `gemm-tile8` | tensor-array's matrix product, SmolLM2-135M's three feed-forward shapes | yes |
-| `gemm-fork` | the same products through tensor-fork's parallel blocks | |
+| `gemm-fork` | the same products through tensor-fork's parallel blocks | yes (gemm-tile8's) |
 | `matvec-bands` | llama.bend's banded matrix-vector product, SmolLM2-1.7B's shapes | yes |
 | `softmax-ce` | tensor-array's softmax and cross-entropy | yes |
 | `mnist-step` | bend-ml's MNIST training step (784-128-10, batch 100) | yes |
-| `block-step` | BendTorch's SmolLM2-135M block, forward and backward | |
-| `attention-step` | the attention half of that block | |
-| `rmsnorm-step` | one RMSNorm of that block | |
+| `block-step` | BendTorch's SmolLM2-135M block, forward and backward | yes |
+| `attention-step` | the attention half of that block | yes |
+| `rmsnorm-step` | one RMSNorm of that block | yes |
 | `adamw` | BendTorch's AdamW update over 28.3 M weights | yes |
 | `read-native` | a 16 MB weight file read with `File.read_at` | yes |
-| `read-binary` | the same file read with `bend-ml-binary-read` | |
+| `read-binary` | the same file read with `bend-ml-binary-read` | yes (read-native's) |
 
 `repros/` has the minimal cases cut from the workloads, the kind of program an upstream issue can carry.
 
@@ -93,7 +93,8 @@ On Bend 2.0.35-2.0.39 (`NOTES.md` has each finding with its date and result fold
   4.75x `softmax-ce`, 21x `read-native` (6.1x in wall time). For the matrix-vector product the main cause is the
   `and` with the array's mask that every `Array.get` keeps (`repros/dot_mask.bend`, bendlang/bend#1781); for
   `softmax-ce` it is tensor-array walking each row as a list (fixed in tensor-array 0.1.17.0, which this corpus
-  measured first).
+  measured first). The other five workloads got their C targets on 2026-10-27 (the same bits); they are measured at
+  the next idle run.
 - **Threads**, on 2.0.39 (`results/2026-10-25-f/`): every workload gives the same bytes at 1 and 16 threads. At 16
   threads `block-step` runs 4.49x faster, `matvec-bands` 4.21x, `attention-step` 3.67x and `gemm-fork` 2.17x. The
   other seven gain nothing: `gemm-tile8` is tensor-array's sequential product (`gemm-fork` is its parallel twin),
