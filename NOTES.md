@@ -58,3 +58,21 @@ private lab.
 - The plan's "a mutant the tests miss" is met only by that harmless one: the mutants that change bits change the
   corpus's hashes too.
 - Plan v1 done: threads, `release.sh`, eleven workloads with six C targets, a law.
+
+## 2026-10-27: plan v1, topic 2, a C target for every workload
+
+- `lib/bt.h`: BendTorch 1.1.1's layers in C for the three block workloads (the inputs of smol_block.bend's hash, AdamW
+  with Train.step's 1 - b^t recurrence, RMSNorm, MSE with its tree sum, Tile8 products and the precise product's blocks
+  of 1024, LinearNB, RoPE, grouped-query attention, SiLU), each loop in the package's order of operations.
+- **rmsnorm-step**: the same 200 losses, bit for bit, at the first build. Its dx is computed and dropped, as the layer
+  does.
+- **attention-step**: the same 4 losses at the first build. The attention sums run over all t positions, the zeros of P
+  and G past the diagonal included, as BendTorch's loops do (adding them changes no bit, since no sum starts at -0).
+- **block-step**: the same 2 losses at the first build; swapping the order of one product's partial sums changes the
+  second loss, so the hash does read the backward pass and the step. The gate and up projections' input gradients
+  (k = 1536) go through matmul_precise's two blocks, 1024 then 512.
+- **gemm-fork** and **read-binary** take gemm-tile8's and read-native's C unchanged: tensor-fork's blocks run
+  tensor-array's own cells (the same bits at every depth), and both reads load the same file.
+- Bend's F32 ops gave no surprise: exp, sqrt, pow, cos and sin are libm's double functions rounded to F32 in Bend's C
+  (`(f32)exp(x)`), under `fp contract(off)`, and the targets call them the same way. Every hash matches Bend 2.0.39's
+  on 1 and 16 threads. No timings: the machine was busy, so the ratios wait for the next idle run.
