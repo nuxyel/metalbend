@@ -76,11 +76,14 @@ rounds to a few hundred in billions; cycles move by a few percent.
 make setup     # Bend 2.0.39 (checked by SHA256), then clang and Python 3 checked
 make check     # every workload on 1 and 16 threads and every C target, against oracles.tsv
 make test      # analyze.py, scripts/chart.py and run.sh's thread guard on synthetic runs
+make laws      # the six laws (with --verdict) and their 16 mutants, each refused
 make mutate    # break the corpus and the tools on purpose; every mutant must be caught
 ```
 
 `oracles.tsv` holds each workload's hash, as `run.sh` records it, from a run where every version and every C target
-printed it. CI runs all three on every push, bits only (GitHub's runners cannot count with `perf`).
+printed it. CI runs all four on every push, bits only (GitHub's runners cannot count with `perf`). `make mutate` has 52
+mutants: 46 caught, and 6 that survive with their reason written next to them. One of the six is a limit of the
+oracle: `block-step` prints only each step's loss, so one rounding changed in SiLU moves nothing the hash sees.
 
 ## What it has found
 
