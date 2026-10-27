@@ -61,6 +61,12 @@ class Guard(unittest.TestCase):
         self.assertNotEqual(p.returncode, 0)
         self.assertIn("Bend 2.0.99 ran on 1 threads with the option for 16; stopping", p.stderr)
 
+    def test_many_more_threads_than_asked_stop_it(self):
+        # the runtime may add a helper or two, not four
+        p, peaks = self.run_sh("16", fake_threads="20")
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("Bend 2.0.99 ran on 20 threads with the option for 16; stopping", p.stderr)
+
     def test_a_version_that_honors_it_passes(self):
         p, peaks = self.run_sh("1 16")
         self.assertEqual(p.returncode, 0, p.stderr)
