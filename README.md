@@ -18,8 +18,8 @@ Each workload under `workloads/<name>/` has up to four parts:
 - **The target.** `native.c`, where there is one: a handwritten C version with the same order of operations, so the
   same bits, and the distance from Bend to native code becomes a ratio. The C targets are the yardstick here, not
   library code: my packages stay in Bend, and these files exist to measure how far Bend's output is from C.
-- **The law.** Where Bend can prove it, a spec the fast code meets (`laws/`). There is one so far, with a limit stated
-  below.
+- **The laws.** Where Bend can prove it, a spec the fast code meets (`laws/`). There are six so far, each with its
+  limit stated below.
 
 The workloads import my published BendHub packages at pinned versions (`bend-ml-tensor-array@0.1.16.0`,
 `bendtorch@1.1.1.0` and so on), so between two runs only the Bend version changes.
@@ -105,12 +105,21 @@ On Bend 2.0.35-2.0.39 (`NOTES.md` has each finding with its date and result fold
 
 The chart is drawn from the raw runs by `python3 -I scripts/chart.py`.
 
-## The law and its limit
+## The laws and their limits
 
-`laws/` proves `t8_is_dotr`: tensor-array's eight-wide dot product and its scalar dot build the same expression from
-the same starting sums, so they agree under any arithmetic, F32 bit for bit included. Four mutants of the model are
-rejected, one of them harmless in F32, so the law is stricter than "the same bits". Its limit: it is about a model of
-the two loops over lists of cells, not about tensor-array's `Array` code, whose F32 cells the checker cannot see into.
+`laws/check.sh` proves six laws (with `--verdict` too) and runs 16 mutants, each one changed line that the checker
+must refuse. `laws/README.md` explains each in plain language.
+
+- `t8_is_dotr`: tensor-array's eight-wide dot and its scalar dot build the same expression, so the same bits under any
+  arithmetic. Limit: a model of the two loops over lists of cells, not the `Array` code.
+- `bands_len`, `matvec_l_len`: matrix · vector over bands (matvec-bands) gives exactly one number per row, on
+  tensor-array's own code. Limit: it counts the numbers, not which product lands where.
+- `fork_cover`: tensor-fork's split visits every row (or column) once, in order. Limit: a model of the split, since
+  the real one shares arrays through `@unsafe` code.
+- `t8_rows_split`, `t8_blocks`: tensor-fork's row blocks, run one after another, compute tensor-array's sequential
+  product on the same arrays, the reason gemm-fork prints gemm-tile8's hashes. Limit: the leaves are the real code and
+  the tree a model; parallel versus one after another, the U32 offsets and the packing are not proved, and two of the
+  three products split by columns, which only `fork_cover` reaches.
 
 ## Adding a workload
 
