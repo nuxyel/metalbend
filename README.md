@@ -1,0 +1,96 @@
+# MetalBend
+
+A corpus of real machine-learning workloads for Bend 2's compiler, run on every Bend release. I cut the workloads
+from my three Bend projects (bend-ml, llama.bend and BendTorch): matrix products, a banded matrix-vector product,
+attention, normalization, an optimizer step, a training step, file reads. Each one is checked by its exact output and
+timed by hardware counters, so a release that changes a workload's speed or its bits shows up as a number.
+
+Renan Vinícius (@nuxyel).
+
+## What a workload is
+
+Each workload under `workloads/<name>/` has up to four parts:
+
+- **The oracle.** The program prints a hash of its whole output. A faster build that changes one bit fails the
+  oracle; a different hash is a finding, never noise.
+- **The starting point.** `main.bend`, timed by `perf stat` (instructions and cycles in user mode, one thread pinned to
+  one core) on every Bend version in the run, and by the wall clock on 16 threads.
+- **The target.** `native.c`, where there is one: a handwritten C version with the same order of operations, so the
+  same bits, and the distance from Bend to native code becomes a ratio. The C targets are the yardstick here, not
+  library code: my packages stay in Bend, and these files exist to measure how far Bend's output is from C.
+- **The law.** Where Bend can prove it, a spec the fast code meets (`laws/`). There is one so far, with a limit stated
+  below.
+
+The workloads import my published BendHub packages at pinned versions (`bend-ml-tensor-array@0.1.16.0`,
+`bendtorch@1.1.1.0` and so on), so between two runs only the Bend version changes.
+
+| Workload | What | C target |
+|---|---|---|
+| `gemm-tile8` | tensor-array's matrix product, SmolLM2-135M's three feed-forward shapes | yes |
+| `gemm-fork` | the same products through tensor-fork's parallel blocks | |
+| `matvec-bands` | llama.bend's banded matrix-vector product, SmolLM2-1.7B's shapes | yes |
+| `softmax-ce` | tensor-array's softmax and cross-entropy | yes |
+| `mnist-step` | bend-ml's MNIST training step (784-128-10, batch 100) | yes |
+| `block-step` | BendTorch's SmolLM2-135M block, forward and backward | |
+| `attention-step` | the attention half of that block | |
+| `rmsnorm-step` | one RMSNorm of that block | |
+| `adamw` | BendTorch's AdamW update over 28.3 M weights | yes |
+| `read-native` | a 16 MB weight file read with `File.read_at` | yes |
+| `read-binary` | the same file read with `bend-ml-binary-read` | |
+
+`repros/` has the minimal cases cut from the workloads, the kind of program an upstream issue can carry.
+
+## Running it
+
+Needs Linux with `perf` and `taskset`, clang, Python 3, and the Bend versions to compare.
+
+```sh
+./run.sh                                     # every workload, Bend 2.0.35-2.0.39, 5 rounds, into results/<today>/
+ROUNDS=3 VERSIONS="38 39" WORKLOADS="softmax-ce" THREADS="1 16" ./run.sh
+BEND_39=~/.bend/bin/bend VERSIONS=39 ./run.sh  # point a version at a binary installed elsewhere
+./release.sh 2.0.40                          # a new release against the one before it
+```
+
+- `run.sh` builds each workload with each Bend version and its C target, then runs rounds in a fresh seeded order.
+  It writes one line per run to `runs.tsv`, the machine's state to `env.tsv`, and a `summary.md` (from `analyze.py`)
+  that marks what moved beyond noise (more than 3x the larger spread between rounds) and any output that differs.
+- A run checks that each version really ran the thread count it was asked for.
+- `release.sh <version>` builds that release and the one before it from their tags (in a clone of bendlang/bend under
+  `build/`, or `$BEND_SRC`), runs the corpus on both at 1 and 16 threads, and prints what changed. On 2.0.39 it took
+  2m13s and found that release's change by itself.
+
+The numbers in `results/` come from one machine: a Core Ultra 7 155H, one thread pinned to CPU 3 (a P-core), on mains
+power in the `performance` profile, the machine idle unless the result says otherwise. Instructions repeat between
+rounds to a few hundred in billions; cycles move by a few percent.
+
+## What it has found
+
+On Bend 2.0.35-2.0.39 (`NOTES.md` has each finding with its date and result folder):
+
+- **2.0.39** runs `softmax-ce` in 64.7% fewer instructions than 2.0.38 and `mnist-step` in 27.1% fewer, with the same
+  bits; the other workloads stay within 0.03%. All of it traces to bendlang/bend#1806, whose own benchmarks saw no
+  change.
+- **Bend / C in cycles**, on 2.0.39: 1.20x `adamw`, 1.33x `gemm-tile8`, 1.96x `mnist-step`, 2.32x `matvec-bands`,
+  4.75x `softmax-ce`, 21x `read-native` (6.1x in wall time). For the matrix-vector product the main cause is the
+  `and` with the array's mask that every `Array.get` keeps (`repros/dot_mask.bend`, bendlang/bend#1781); for
+  `softmax-ce` it is tensor-array walking each row as a list (fixed in tensor-array 0.1.17.0, which this corpus
+  measured first).
+- **Threads**: every workload gives the same bytes at 1 and 16 threads. At 16 threads `block-step` runs 4.4x faster
+  and `matvec-bands` 4.1x; `mnist-step`, `softmax-ce`, `adamw` and `rmsnorm-step` barely use the threads (1.0-1.03x).
+
+## The law and its limit
+
+`laws/` proves `t8_is_dotr`: tensor-array's eight-wide dot product and its scalar dot build the same expression from
+the same starting sums, so they agree under any arithmetic, F32 bit for bit included. Four mutants of the model are
+rejected, one of them harmless in F32, so the law is stricter than "the same bits". Its limit: it is about a model of
+the two loops over lists of cells, not about tensor-array's `Array` code, whose F32 cells the checker cannot see into.
+
+## Adding a workload
+
+A new `workloads/<name>/main.bend` that imports its packages at pinned versions, builds its inputs with `lib/mb.bend`'s
+deterministic values, and prints `lib/mb.bend`'s hash of its whole output. A C target goes next to it as `native.c`,
+with `lib/mb.h`'s inputs and hash, and must print the same hash. `run.sh` picks up every folder under `workloads/`.
+
+## License
+
+MIT.

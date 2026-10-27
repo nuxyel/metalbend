@@ -1,0 +1,15 @@
+# build outputs and local scratch (the workloads' native.c files are versioned)
+build/
+.scratch/
+*.bendtt
+perf.data*
+
+# generated inputs
+data/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+.DS_Store
