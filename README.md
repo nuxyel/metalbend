@@ -57,7 +57,14 @@ BEND_39=~/.bend/bin/bend VERSIONS=39 ./run.sh  # point a version at a binary ins
 - A run checks that each version really ran the thread count it was asked for.
 - `release.sh <version>` builds that release and the one before it from their tags (in a clone of bendlang/bend under
   `build/`, or `$BEND_SRC`), runs the corpus on both at 1 and 16 threads, and prints what changed. On 2.0.39 it took
-  2m13s and found that release's change by itself.
+  2m13s and found that release's change by itself. It needs `bun` too, and stops if the tag is not upstream yet.
+
+On the day a release ships (2.0.40, say), on an idle machine:
+
+```sh
+./release.sh 2.0.40                                         # into results/<today>-2.0.40/
+python3 -I scripts/chart.py 40 results/<today>-2.0.40       # docs/results-2.0.40.svg, from that run
+```
 
 The numbers in `results/` come from one machine: a Core Ultra 7 155H, one thread pinned to CPU 3 (a P-core), on mains
 power in the `performance` profile, the machine idle unless the result says otherwise. Instructions repeat between
