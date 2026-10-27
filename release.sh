@@ -39,3 +39,4 @@ for v in "$old" "$new"; do
 done
 echo "== $out/summary.md"
 sed -n '/## Beyond noise or differing outputs/,$p' "$out/summary.md"
+[ "${ROUNDS:-5}" -ge 3 ] || echo "(fewer than 3 rounds: nothing is marked beyond noise; the tables are in $out/summary.md)"
