@@ -34,10 +34,12 @@ jobs:
       # Bend and the BendHub packages the workloads import (under ~/.bend/lib), keyed by the pins: setup.sh has
       # Bend's, the import lines the packages'. The key also carries the exact Python (3.14.9, not 3.14): a cache
       # made under one interpreter is never reused under another
-      - name: Cache Bend and the BendHub packages
+      - name: Cache Bend, Lean and the BendHub packages
         uses: actions/cache@v6
         with:
-          path: ~/.bend
+          path: |
+            ~/.bend
+            ~/.elan
           key: bend-${{ runner.os }}-py${{ steps.py.outputs.python-version }}-${{ hashFiles('scripts/setup.sh', 'workloads/*/main.bend', 'lib/*.bend') }}
 
       - name: clang
@@ -45,7 +47,7 @@ jobs:
           command -v clang || { sudo apt-get update -q && sudo apt-get install -y -q clang; }
           clang --version | head -1
 
-      - name: Set up (Bend 2.0.39)
+      - name: Set up (Bend 2.0.39, Lean 4.34.0)
         run: make setup
 
       # written on every run, never cached: the generator is part of what is checked
