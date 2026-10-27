@@ -58,3 +58,18 @@ private lab.
 - The plan's "a mutant the tests miss" is met only by that harmless one: the mutants that change bits change the
   corpus's hashes too.
 - Plan v1 done: threads, `release.sh`, eleven workloads with six C targets, a law.
+
+## 2026-10-27: CI and tests of the tool
+
+- `oracles.tsv`: each workload's hash from `results/2026-10-25-f/`, where all five versions on 1 and 16 threads and
+  every C target printed it. `make check` builds the eleven workloads with Bend 2.0.39 and the six C targets with
+  clang and runs them (1 and 16 threads): 28 runs, every hash its oracle, on my machine (clang 23) and on GitHub's
+  ubuntu-24.04 runner (clang 18.1.3, another glibc), so the C targets' bits, `exp` included, did not depend on either.
+- `make test`: 25 unit tests of `analyze.py`, `scripts/chart.py` and `run.sh`'s thread guard on synthetic runs.
+  The guard's test on the runner found a race: a process ending between two polls made `ls /proc/<pid>/task` fail,
+  which ended `run.sh` silently under `pipefail`; fixed.
+- `make mutate`: 48 mutants (workloads, C targets, `lib/mb.bend`, `lib/mb.h`, `lib/gen_dense.py`, `oracles.tsv`,
+  `analyze.py`, `chart.py`, the guard), 43 caught, 5 survive as expected: the fork depth of `gemm-fork`, a swapped
+  addition, a max that takes ties from the right, `calloc`'s swapped arguments (all the same bits) and `>=` for `>` at
+  exactly 3x the noise. The first run found one gap, a spread over the mean instead of the median; a test now covers it.
+- CI (`.github/workflows/ci.yml`) runs all three on every push in about 3.5 minutes; bits only, no timings.
