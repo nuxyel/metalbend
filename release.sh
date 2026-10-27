@@ -12,8 +12,10 @@ new=${1:?usage: release.sh <new version> [<old version>]}
 src=${BEND_SRC:-$PWD/build/bend}
 [ -d "$src/.git" ] || git clone -q https://github.com/bendlang/bend "$src"
 git -C "$src" fetch -q --tags origin
+git -C "$src" rev-parse -q --verify "refs/tags/v$new" > /dev/null || { echo "no tag v$new in bendlang/bend yet" >&2; exit 2; }
 old=${2:-$(git -C "$src" tag -l 'v2.0.*' | sed 's/^v//' | sort -t. -k3,3n | awk -v n="$new" '$0 == n {print prev; exit} {prev = $0}')}
 [ -n "$old" ] || { echo "no release before $new" >&2; exit 2; }
+git -C "$src" rev-parse -q --verify "refs/tags/v$old" > /dev/null || { echo "no tag v$old in bendlang/bend" >&2; exit 2; }
 mkdir -p build/bin build/src
 for v in "$old" "$new"; do
   n=${v##*.}
