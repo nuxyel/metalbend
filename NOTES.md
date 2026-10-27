@@ -58,3 +58,22 @@ private lab.
 - The plan's "a mutant the tests miss" is met only by that harmless one: the mutants that change bits change the
   corpus's hashes too.
 - Plan v1 done: threads, `release.sh`, eleven workloads with six C targets, a law.
+
+## 2026-10-27: plan v1 topic 3, more laws
+
+- `laws/` has six laws now, all checked with `--verdict`, and `laws/mutants.sh` (run by `check.sh`, or alone) has 16
+  mutants, all refused. A mutant of tensor-array's code is made in a copy of the published 0.1.16.0 that must still
+  check by itself, so the refusal comes from these laws.
+- `bands_len` and `matvec_l_len`, on tensor-array's own code: matrix · vector over bands gives one number per row.
+  bend-ml had left the whole tree open (a band holds an `Array`, and the straight proof uses each band twice); here
+  each step returns its result together with the proofs about it, in one record, so each band is used once.
+- `fork_cover` (a model of tensor-fork's split): the blocks visit every row or column once, in order.
+  `t8_rows_split` (real code) and `t8_blocks` (real leaves, model tree): the row blocks, run one after another, compute
+  tensor-array's sequential product, the reason gemm-fork prints gemm-tile8's hashes, for the one product of three
+  that splits by rows. Not proved: parallel against one after another (tensor-fork's `@unsafe` sharing), the U32
+  offsets, the packing's blocks, and the order of writes in the column split.
+- Two mutants are harmless to the result and still refused, as `s1 + s0` was: the right block running first, and the
+  laws state the computation, not only its result. One the count laws let through: the bands' numbers joined in the
+  other order (bend-ml's `join_len` refuses it).
+- Not done: a count of each workload's output for the matrix products (C is written in place by index, with nothing
+  for the checker to count but the loop's own steps).
