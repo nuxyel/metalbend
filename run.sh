@@ -86,7 +86,8 @@ for v in $VERSIONS; do
     "$bin" $(rts "$v" "$t") > /dev/null & pid=$!
     peak=0
     while kill -0 "$pid" 2>/dev/null; do
-      n=$(ls "/proc/$pid/task" 2>/dev/null | wc -l)
+      # the process may end between the two lines: ls then fails, which under pipefail would end run.sh silently
+      n=$(ls "/proc/$pid/task" 2>/dev/null | wc -l) || n=0
       [ "$n" -gt "$peak" ] && peak=$n
       sleep 0.02
     done
