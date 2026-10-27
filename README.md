@@ -75,10 +75,15 @@ On Bend 2.0.35-2.0.39 (`NOTES.md` has each finding with its date and result fold
   `and` with the array's mask that every `Array.get` keeps (`repros/dot_mask.bend`, bendlang/bend#1781); for
   `softmax-ce` it is tensor-array walking each row as a list (fixed in tensor-array 0.1.17.0, which this corpus
   measured first).
-- **Threads**: every workload gives the same bytes at 1 and 16 threads. At 16 threads `block-step` runs 4.4x faster,
-  `matvec-bands` 4.1x, `attention-step` 3.7x and `gemm-fork` 2.2x. The other seven gain nothing: `gemm-tile8` is
-  tensor-array's sequential product (`gemm-fork` is its parallel twin), `mnist-step`, `softmax-ce`, `adamw` and
-  `rmsnorm-step` run their loops one after another (1.0-1.04x), and the two file reads get slower (0.83x and 0.90x).
+- **Threads**, on 2.0.39 (`results/2026-10-25-f/`): every workload gives the same bytes at 1 and 16 threads. At 16
+  threads `block-step` runs 4.49x faster, `matvec-bands` 4.21x, `attention-step` 3.67x and `gemm-fork` 2.17x. The
+  other seven gain nothing: `gemm-tile8` is tensor-array's sequential product (`gemm-fork` is its parallel twin),
+  `mnist-step`, `softmax-ce`, `adamw` and `rmsnorm-step` run their loops one after another (1.00-1.04x), and the two
+  file reads get slower (0.83x and 0.90x).
+
+![Two bar charts. Top: Bend 2.0.39 needs 1.20x the CPU cycles of handwritten C for the AdamW step, 1.33x for the matrix product, 1.96x for the MNIST step, 2.32x for the matrix-vector product, 4.75x for softmax and cross-entropy and 21x for the file read. Bottom: on 16 threads the transformer block runs 4.49x faster than on one, the matrix-vector product 4.21x, attention 3.67x and the parallel matrix product 2.17x; the other seven gain nothing (1.00-1.04x) or get slower (the two file reads, 0.90x and 0.83x).](docs/results-2.0.39.svg)
+
+The chart is drawn from the raw runs by `python3 -I scripts/chart.py`.
 
 ## The law and its limit
 
