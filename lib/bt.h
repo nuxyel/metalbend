@@ -295,3 +295,12 @@ static void bt_attn_bwd(const bt_attn *A, const float *q, const float *k, const 
 static void bt_add(size_t n, float *a, const float *b) {
   for (size_t i = 0; i < n; i++) a[i] = a[i] + b[i];
 }
+
+// ---- SiLU as PyTorch's CPU kernel computes it: x / (1 + exp(-x)); its gradient dy s (1 + x (1 - s)), s = sigmoid(x) ----
+
+static inline float bt_silu(float x) { return x / (1.0f + (float)exp((double)-x)); }
+
+static inline float bt_silu_d(float dy, float x) {
+  float s = 1.0f / (1.0f + (float)exp((double)-x));
+  return (dy * s) * (1.0f + x * (1.0f - s));
+}
