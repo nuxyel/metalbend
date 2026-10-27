@@ -2,6 +2,7 @@
 import Base
 import bend-ml-tensor-array@0.1.16.0/main.bend as TA
 import ./t8_dotr.bend as D
+import ./fork.bend as F
 import ./LAWS.bend as Laws
 
 # Induction on the cells. One cell of each line: Tile8 takes it in one step; flat lays its eight numbers out, and dotr
@@ -127,3 +128,67 @@ def Laws.bands_len(c, r, b, rr, e, xp):
 # Bands.matvec_l is bmv on a copy of x, with rr = r
 def Laws.matvec_l_len(r, c, b, x):
   Laws.bands_len(c, r, b, r, {==}, Array.clone(F32, TA.fill_list(x, 0, Array.new(F32, TA.cap_depth(c), 0.0))))
+
+# ---- fork_cover, t8_rows_split and t8_blocks ----
+
+# fst(divmod.go(n, m, d, r)) <= d + n: Base's division loop never counts past the steps it takes
+def go_le(+n: Nat, +m: Nat, +d: Nat, +r: Nat) -> {True{} == TA.leb(Pair.fst(Nat, Nat, Nat.divmod.go(n, m, d, r)), Nat.add(d, n)) : Bool}:
+  match n m:
+    case 0n _:
+      %Equal.sym(Nat, Nat.add(d, 0n), d, TA.add_zero_r(d)) : {True{} == TA.leb(d, _) : Bool}
+      TA.leb_refl(d)
+    case 1n+np 0n:
+      %TA.add_succ_r(d, np) : {True{} == TA.leb(Pair.fst(Nat, Nat, Nat.divmod.go(np, r, 1n+d, 0n)), _) : Bool}
+      go_le(np, r, 1n+d, 0n)
+    case 1n+np 1n+mp:
+      %TA.add_succ_r(d, np) : {True{} == TA.leb(Pair.fst(Nat, Nat, Nat.divmod.go(np, mp, d, 1n+r)), _) : Bool}
+      TA.leb_succ(Pair.fst(Nat, Nat, Nat.divmod.go(np, mp, d, 1n+r)), Nat.add(d, np), go_le(np, mp, d, 1n+r))
+
+# cnt / 2 <= cnt: the left block never takes more than there is
+def div2_le(+cnt: Nat) -> {True{} == TA.leb(Nat.div(cnt, 2n), cnt) : Bool}:
+  go_le(cnt, 1n, 0n, 0n)
+
+# a + b indexes from i0 are a indexes from i0, then b from i0 + a
+def rows_app(+a: Nat, +b: Nat, +i0: Nat) -> {F.rows(Nat.add(a, b), i0) == List.append(&2, Nat, F.rows(a, i0), F.rows(b, Nat.add(i0, a))) : List<&2, Nat>}:
+  match a:
+    case 0n:
+      %Equal.sym(Nat, Nat.add(i0, 0n), i0, TA.add_zero_r(i0)) : {F.rows(b, i0) == F.rows(b, _) : List<&2, Nat>}
+      {==}
+    case 1n+p:
+      %TA.add_succ_r(i0, p) : {F.rows(1n+Nat.add(p, b), i0) == List.append(&2, Nat, F.rows(1n+p, i0), F.rows(b, _)) : List<&2, Nat>}
+      %Equal.sym(List<&2, Nat>, F.rows(Nat.add(p, b), 1n+i0), List.append(&2, Nat, F.rows(p, 1n+i0), F.rows(b, Nat.add(1n+i0, p))), rows_app(p, b, 1n+i0)) : {i0 <> _ == i0 <> List.append(&2, Nat, F.rows(p, 1n+i0), F.rows(b, 1n+Nat.add(i0, p))) : List<&2, Nat>}
+      {==}
+
+# Induction on the depth. Each block of the node is, by the law one level down, a plain run over its indexes; the two
+# runs are one run over cnt / 2 + (cnt - cnt / 2) indexes (rows_app), and that is cnt (bend-ml's add_sub, with
+# div2_le).
+def Laws.fork_cover(d, i0, cnt):
+  match d:
+    case 0n:
+      {==}
+    case 1n+q:
+      %Equal.sym(List<&2, Nat>, F.tree(q, i0, Nat.div(cnt, 2n)), F.rows(Nat.div(cnt, 2n), i0), Laws.fork_cover(q, i0, Nat.div(cnt, 2n))) : {List.append(&2, Nat, _, F.tree(q, Nat.add(i0, Nat.div(cnt, 2n)), Nat.sub(cnt, Nat.div(cnt, 2n)))) == F.rows(cnt, i0) : List<&2, Nat>}
+      %Equal.sym(List<&2, Nat>, F.tree(q, Nat.add(i0, Nat.div(cnt, 2n)), Nat.sub(cnt, Nat.div(cnt, 2n))), F.rows(Nat.sub(cnt, Nat.div(cnt, 2n)), Nat.add(i0, Nat.div(cnt, 2n))), Laws.fork_cover(q, Nat.add(i0, Nat.div(cnt, 2n)), Nat.sub(cnt, Nat.div(cnt, 2n)))) : {List.append(&2, Nat, F.rows(Nat.div(cnt, 2n), i0), _) == F.rows(cnt, i0) : List<&2, Nat>}
+      %Equal.sym(Nat, cnt, Nat.add(Nat.div(cnt, 2n), Nat.sub(cnt, Nat.div(cnt, 2n))), TA.add_sub(Nat.div(cnt, 2n), cnt, div2_le(cnt))) : {List.append(&2, Nat, F.rows(Nat.div(cnt, 2n), i0), F.rows(Nat.sub(cnt, Nat.div(cnt, 2n)), Nat.add(i0, Nat.div(cnt, 2n)))) == F.rows(_, i0) : List<&2, Nat>}
+      Equal.sym(List<&2, Nat>, F.rows(Nat.add(Nat.div(cnt, 2n), Nat.sub(cnt, Nat.div(cnt, 2n))), i0), List.append(&2, Nat, F.rows(Nat.div(cnt, 2n), i0), F.rows(Nat.sub(cnt, Nat.div(cnt, 2n)), Nat.add(i0, Nat.div(cnt, 2n)))), rows_app(Nat.div(cnt, 2n), Nat.sub(cnt, Nat.div(cnt, 2n)), i0))
+
+# Induction on a. No row left: both sides are the second loop. One row: both sides do row i (t8_cols) first, then the
+# law one row shorter from row i + 1. The arrays (g) appear only in the statement, never used up.
+def Laws.t8_rows_split(ac, a, b, m, tk, tku, rot, i, mu, g):
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      Laws.t8_rows_split(ac, p, b, m, tk, tku, rot, (i + 1 : U32), mu, TA.t8_cols(ac, m, tk, tku, rot, i, 0, (i * mu : U32), g))
+
+# Induction on the depth, as fork_cover: each block is a plain t8_rows by the law one level down, and the two runs are
+# one run over all cnt rows by t8_rows_split.
+def Laws.t8_blocks(ac, d, cnt, m, tk, tku, rot, i0, mu, g):
+  match d:
+    case 0n:
+      {==}
+    case 1n+q:
+      %Equal.sym(TA.TG, F.blocks(ac, q, Nat.div(cnt, 2n), m, tk, tku, rot, i0, mu, g), TA.t8_rows(ac, Nat.div(cnt, 2n), m, tk, tku, rot, i0, mu, g), Laws.t8_blocks(ac, q, Nat.div(cnt, 2n), m, tk, tku, rot, i0, mu, g)) : {F.blocks(ac, q, Nat.sub(cnt, Nat.div(cnt, 2n)), m, tk, tku, rot, F.adv(Nat.div(cnt, 2n), i0), mu, _) == TA.t8_rows(ac, cnt, m, tk, tku, rot, i0, mu, g) : TA.TG}
+      %Equal.sym(TA.TG, F.blocks(ac, q, Nat.sub(cnt, Nat.div(cnt, 2n)), m, tk, tku, rot, F.adv(Nat.div(cnt, 2n), i0), mu, TA.t8_rows(ac, Nat.div(cnt, 2n), m, tk, tku, rot, i0, mu, g)), TA.t8_rows(ac, Nat.sub(cnt, Nat.div(cnt, 2n)), m, tk, tku, rot, F.adv(Nat.div(cnt, 2n), i0), mu, TA.t8_rows(ac, Nat.div(cnt, 2n), m, tk, tku, rot, i0, mu, g)), Laws.t8_blocks(ac, q, Nat.sub(cnt, Nat.div(cnt, 2n)), m, tk, tku, rot, F.adv(Nat.div(cnt, 2n), i0), mu, TA.t8_rows(ac, Nat.div(cnt, 2n), m, tk, tku, rot, i0, mu, g))) : {_ == TA.t8_rows(ac, cnt, m, tk, tku, rot, i0, mu, g) : TA.TG}
+      %Equal.sym(Nat, cnt, Nat.add(Nat.div(cnt, 2n), Nat.sub(cnt, Nat.div(cnt, 2n))), TA.add_sub(Nat.div(cnt, 2n), cnt, div2_le(cnt))) : {TA.t8_rows(ac, Nat.sub(cnt, Nat.div(cnt, 2n)), m, tk, tku, rot, F.adv(Nat.div(cnt, 2n), i0), mu, TA.t8_rows(ac, Nat.div(cnt, 2n), m, tk, tku, rot, i0, mu, g)) == TA.t8_rows(ac, _, m, tk, tku, rot, i0, mu, g) : TA.TG}
+      Equal.sym(TA.TG, TA.t8_rows(ac, Nat.add(Nat.div(cnt, 2n), Nat.sub(cnt, Nat.div(cnt, 2n))), m, tk, tku, rot, i0, mu, g), TA.t8_rows(ac, Nat.sub(cnt, Nat.div(cnt, 2n)), m, tk, tku, rot, F.adv(Nat.div(cnt, 2n), i0), mu, TA.t8_rows(ac, Nat.div(cnt, 2n), m, tk, tku, rot, i0, mu, g)), Laws.t8_rows_split(ac, Nat.div(cnt, 2n), Nat.sub(cnt, Nat.div(cnt, 2n)), m, tk, tku, rot, i0, mu, g))
