@@ -30,6 +30,26 @@ mutants=(
     "tensor-array: a band reads back one number fewer than its rows"
   LAWS.bend 's/{TA.bl_len(r, c, TA.bmv(c, r, b, rr, e, xp)) == rr : Nat}/{TA.bl_len(r, c, TA.bmv(c, r, b, rr, e, xp)) == 1n+rr : Nat}/'
     "statement: bands_len claims one number more than the rows"
+  # fork_cover: the model of the split
+  fork.bend 's/tree(q, Nat.add(i0, Nat.div(cnt, 2n))/tree(q, Nat.add(1n+i0, Nat.div(cnt, 2n))/'
+    "split: the right block starts one index late"
+  fork.bend 's/Nat.sub(cnt, Nat.div(cnt, 2n))))$/Nat.div(cnt, 2n)))/'
+    "split: the right block gets cnt / 2 indexes too (an odd count loses its last)"
+  fork.bend 's/List.append(&2, Nat, tree(q, i0, Nat.div(cnt, 2n)), \(tree(q, Nat.add(i0, Nat.div(cnt, 2n)), Nat.sub(cnt, Nat.div(cnt, 2n)))\))/List.append(\&2, Nat, \1, tree(q, i0, Nat.div(cnt, 2n)))/'
+    "split: the right block's indexes listed first"
+  LAWS.bend 's/{F.tree(d, i0, cnt) == F.rows(cnt, i0)/{F.tree(d, i0, cnt) == F.rows(cnt, 0n)/'
+    "statement: fork_cover claims the indexes start at 0"
+  # t8_rows_split, t8_blocks: tensor-array's row loop, and the model of the blocks
+  ta 's/t8_rows(ac, p, m, tk, tku, rot, (i + 1 : U32), mu,/t8_rows(ac, p, m, tk, tku, rot, (i + 2 : U32), mu,/'
+    "tensor-array: the row loop skips every other row"
+  LAWS.bend 's/TA.t8_rows(ac, b, m, tk, tku, rot, F.adv(a, i), mu,/TA.t8_rows(ac, b, m, tk, tku, rot, i, mu,/'
+    "statement: t8_rows_split's second loop starts again at row i"
+  fork.bend 's/adv(Nat.div(cnt, 2n), i0)/adv(Nat.sub(cnt, Nat.div(cnt, 2n)), i0)/'
+    "blocks: the right block starts at the size of the right half (wrong when cnt is odd)"
+  fork.bend 's/blocks(ac, q, Nat.sub(cnt, Nat.div(cnt, 2n)), m/blocks(ac, q, Nat.div(cnt, 2n), m/'
+    "blocks: the right block runs cnt / 2 rows (an odd count loses its last row)"
+  fork.bend 's/blocks(ac, q, Nat.sub(cnt, Nat.div(cnt, 2n)), m, tk, tku, rot, adv(Nat.div(cnt, 2n), i0), mu, blocks(ac, q, Nat.div(cnt, 2n), m, tk, tku, rot, i0, mu, g))/blocks(ac, q, Nat.div(cnt, 2n), m, tk, tku, rot, i0, mu, blocks(ac, q, Nat.sub(cnt, Nat.div(cnt, 2n)), m, tk, tku, rot, adv(Nat.div(cnt, 2n), i0), mu, g))/'
+    "blocks: the right block runs first (the same arrays at the end, since the blocks write other rows: the law is stricter)"
 )
 
 tmp=$(mktemp -d)
