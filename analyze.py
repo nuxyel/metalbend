@@ -41,6 +41,11 @@ def main(out):
         c["sec"].append(float(r["seconds"]))
         c["hash"].add(r["hash"])
     native = {w: cell.pop((w, "c")) for w, v in list(cell) if v == "c"}
+    if not cell:
+        # nothing ran on one thread under Bend (ROUNDS=0, or every build failed): say so instead of a traceback
+        (out / "summary.md").write_text(f"# {out.name}\n\nNo one-thread Bend runs in runs.tsv.\n")
+        print(f"{out.name}: no one-thread Bend runs in runs.tsv")
+        return
     workloads = sorted({w for w, _ in cell})
     versions = sorted({v for _, v in cell})
     base = versions[-1]
