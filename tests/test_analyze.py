@@ -61,6 +61,12 @@ class Analyze(unittest.TestCase):
         rows = series("w", 39, [1000 * M] * 5) + series("w", 38, scaled(BASE, 1.025))
         self.assertEqual(self.findings(rows), ["None."])
 
+    def test_the_spread_is_max_minus_min_over_the_median(self):
+        # median 1000, mean 1060: (1200 - 1000) / 1000 is 20%, over the mean it would be 18.87%
+        skewed = [1000 * M, 1000 * M, 1000 * M, 1100 * M, 1200 * M]
+        text = self.summary(series("w", 39, skewed))
+        self.assertIn("| w | 2.0.39 | 1000.0 | 20.00% | 1000.0 | 20.00% |", text)
+
     def test_the_floors(self):
         # no spread at all: 0.2% of instructions is within the 0.1% floor's 3x, 0.4% beyond; cycles keep a 1% floor
         flat = [1000 * M] * 5
