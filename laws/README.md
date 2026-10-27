@@ -1,18 +1,80 @@
 # Laws
 
 `LAWS.bend` states the claims, `PROOF.bend` proves them (plain Bend: no `@unsafe`, no `?TODO`, no axioms), and
-`check.sh` is the gate: the proofs must check, with `--verdict` too, and every mutant of the model must break them.
+`check.sh` is the gate: the proofs must check, with `--verdict` too, and every mutant in `mutants.sh` must break them.
+A mutant is one changed line in a scratch copy: a model, a statement, or tensor-array's own code (a copy of the
+published 0.1.16.0 that must still check by itself, so the failure comes from these laws). `VERBOSE=1
+laws/mutants.sh` shows where the checker stops on each.
 
-- **t8_is_dotr**: on lines that are a whole number of cells of 8, tensor-array's Tile8 dot (sum q gets product q,
-  then product q + 4, of each cell) and its scalar dot `dotr` (each product added to the first of four sums, which
-  then rotate) build the same expression from the same starting sums. The numbers are expression trees (`E`: `Lit`,
-  `Add`, `Mul`) and nothing is assumed about `Add` or `Mul`, so the two loops do the same operations in the same order
-  and agree under any arithmetic, F32 bit for bit included. The proof is an induction on the cells: dotr's eight
-  rotating steps over one cell compute, by evaluation alone, exactly Tile8's one step.
-  - It is a law about a model of the two loops on lists of cells (`t8_dotr.bend`), not about tensor-array's `Array`
-    code, which reads F32 cells the checker cannot see into; the model's lines are both made of whole cells (every
-    product shape in the corpus: k = 256, 576, 1536).
-  - Four mutants of the model are rejected (`check.sh`): a lane adding its two products in the other order, two lanes
-    swapping a product, the sums combined in another pairing, and the first pair added as `s1 + s0`. The last is
-    harmless in F32 (addition commutes), so no numeric test can see it: the law is stricter than "the same bits",
-    because it assumes nothing about `Add`.
+Some laws speak about the real package code, imported at the version the workloads pin; others about a model of it,
+written here, when the real code cannot be imported or read by the checker. Each one below says which.
+
+## t8_is_dotr: the eight-wide dot product is the scalar one
+
+On lines that are a whole number of cells of 8, tensor-array's Tile8 dot (sum q gets product q, then product q + 4,
+of each cell) and its scalar dot `dotr` (each product added to the first of four sums, which then rotate) build the
+same expression from the same starting sums. The numbers are expression trees (`E`: `Lit`, `Add`, `Mul`) and nothing
+is assumed about `Add` or `Mul`, so the two loops do the same operations in the same order and agree under any
+arithmetic, F32 bit for bit included. The proof is an induction on the cells: dotr's eight rotating steps over one
+cell compute, by evaluation alone, exactly Tile8's one step.
+
+- A model of the two loops on lists of cells (`t8_dotr.bend`), not tensor-array's `Array` code, which reads F32 cells
+  the checker cannot see into; the model's lines are both made of whole cells (every product shape in the corpus:
+  k = 256, 576, 1536).
+- Four mutants: a lane adding its two products in the other order, two lanes swapping a product, the sums combined in
+  another pairing, and the first pair added as `s1 + s0`. The last is harmless in F32 (addition commutes), so no
+  numeric test can see it: the law is stricter than "the same bits", because it assumes nothing about `Add`.
+
+## bands_len and matvec_l_len: matrix · vector over bands gives one number per row
+
+matvec-bands multiplies a matrix cut into 16 bands of rows (tensor-array's `Bands`) by a vector. `bands_len` says that
+the product (`bmv`, which `Bands.matvec` runs) gives exactly as many numbers as the matrix has rows, whatever the
+bands; `matvec_l_len` says the same of the public `Bands.matvec_l`. So no row is skipped or done twice: the
+2048 numbers the workload hashes (and the 8192 in between) are all products, none a zero left over in the output.
+
+- Real code: tensor-array 0.1.16.0, imported. bend-ml proves the pieces (`band_len`: one band gives its rows;
+  `join_len`: two halves add up; `half_cover`: the halves of r rows are r rows) and left the whole tree open, because
+  the straight proof hands each band to the product and again to the induction step, and a band holds an `Array`,
+  which can be used only once. The proof here goes around it: each step returns its result together with two proofs,
+  "this is what the real code computes" and "it holds this many numbers", in one record, so each band is used once,
+  and the proofs mention the real code only in their types, where nothing is used up.
+- It counts; it does not say which product lands where. A mutant that puts the second band's numbers before the
+  first's keeps the count (bend-ml's own `join_len` refuses that one).
+- Three mutants: a band multiplying only the first half of its rows, a band reading back one number fewer than its
+  rows (both in a copy of tensor-array that still checks by itself), and the statement claiming one number more.
+
+## fork_cover: tensor-fork's blocks cover the rows once, in order
+
+gemm-fork splits each product into up to 8 blocks: a node gives its first half (`cnt / 2` rows or columns) to the
+left block and the rest, from `i0 + cnt / 2` on, to the right one. `fork_cover` says that at any depth the blocks,
+read left to right, visit `i0, i0 + 1, ..., i0 + cnt - 1`: each index once, in the order one block would.
+
+- A model of the split (`fork.bend`): tensor-fork's own code shares the arrays between the blocks with Base's
+  `@unsafe` `Array.fork`, which a law cannot import. The model copies the split's arithmetic (`Nat.div`, `Nat.sub`)
+  from it; it covers the row split (`rpar`) and the column split (`cpar`) alike.
+- Four mutants: the right block starting one index late, the right block taking `cnt / 2` indexes too (an odd count
+  loses its last), the right block listed first, and the statement claiming the indexes start at 0.
+
+## t8_rows_split and t8_blocks: the blocks compute tensor-array's sequential product
+
+`t8_rows_split` says that tensor-array's Tile8 row loop over `a + b` rows is the loop over `a` rows followed by the
+loop over the next `b` rows, on what the first left. `t8_blocks` builds on it: tensor-fork's row blocks, run one after
+another, left first, compute exactly what tensor-array's sequential loop computes over all the rows, on the same
+arrays. That is why gemm-fork and gemm-tile8 print the same hashes, by proof rather than by test, for the products
+that split by rows.
+
+- `t8_rows_split` is about the real code (tensor-array's `t8_rows`). `t8_blocks` has the real `t8_rows` as its
+  leaves and the model's tree around them. Three steps stay unproved: (1) the real blocks run in parallel on shared
+  arrays, so "one after another" equals "in parallel" only because each block writes its own rows of C and only reads
+  A and B, which tensor-fork does not check (its tests sample it); (2) tensor-fork computes the right block's first row
+  as `i0 + cnt / 2` in U32, the model as `cnt / 2` steps of + 1, the same number below 2^32; (3) the packing into cells
+  of 8, which tensor-fork also does in blocks.
+- It covers the row split only: two of gemm-fork's three products (256 x 1536 and 256 x 576) have more columns than
+  rows and split by columns, where the blocks write C in another order than the sequential loop. For those,
+  `fork_cover` shows each column is done once, and the cells are the same `t8_cell`s, but the claim that the order of
+  the writes does not matter is not proved.
+- Five mutants: the row loop skipping every other row (in a copy of tensor-array that still checks by itself), the
+  statement's second loop starting again at row `i`, the right block starting at the size of the right half (wrong
+  when `cnt` is odd), the right block running `cnt / 2` rows, and the right block running first. The last one is
+  harmless to the result, since the two blocks write different rows; the law refuses it because it states the same
+  computation step by step, which is stricter than "the same arrays at the end".
