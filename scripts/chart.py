@@ -1,8 +1,9 @@
-"""Draws the results chart, docs/results-2.0.39.svg, from the raw runs in results/ (no numbers are typed in here).
+"""Draws a results chart from the raw runs in results/ (no numbers are typed in here).
 
-    python3 -I scripts/chart.py
+    python3 -I scripts/chart.py                                  # docs/results-2.0.39.svg, from the runs of record
+    python3 -I scripts/chart.py 40 results/<date>-2.0.40         # docs/results-2.0.40.svg, from release.sh's run
 
-Two panels, both on Bend 2.0.39:
+Two panels, both on one Bend version:
 - top: Bend / C in user-mode cycles on one thread, for the six workloads with a C target (median over the rounds of
   the run of record, the same numbers as README.md);
 - bottom: the wall-time speedup on 16 threads over one thread, for all eleven workloads.
@@ -10,17 +11,18 @@ Plain SVG, standard library only, so it runs from a fresh clone.
 """
 import csv
 import statistics
+import sys
 from collections import defaultdict
 from pathlib import Path
 from xml.sax.saxutils import escape
 
 ROOT = Path(__file__).resolve().parent.parent
+# with no arguments, 2.0.39 and the run of record for each number, as README.md and NOTES.md cite them
 VERSION = "39"
-# the run of record for each number, as README.md and NOTES.md cite them
 C_RUNS = {"gemm-tile8": "2026-10-25-d", "matvec-bands": "2026-10-25-d", "softmax-ce": "2026-10-25-d",
           "adamw": "2026-10-25-f", "mnist-step": "2026-10-25-f", "read-native": "2026-10-25-f"}
 THREAD_RUN = "2026-10-25-f"
-OUT = ROOT / "docs" / "results-2.0.39.svg"
+ROUNDS = {}  # rounds per run used
 
 LABELS = {
     "gemm-tile8": "matrix product",
@@ -59,6 +61,7 @@ def c_ratios():
     cache = {}
     for w, run in C_RUNS.items():
         rs = cache.setdefault(run, runs(run))
+        ROUNDS[run] = max(int(r["round"]) for r in rs)
         cyc = defaultdict(list)
         hashes = defaultdict(set)
         for r in rs:
@@ -74,6 +77,7 @@ def speedups():
     sec = defaultdict(list)
     hashes = defaultdict(set)
     for r in runs(THREAD_RUN):
+        ROUNDS[THREAD_RUN] = max(ROUNDS.get(THREAD_RUN, 0), int(r["round"]))
         if r["bend"] == VERSION and r["status"] == "ok":
             sec[(r["workload"], int(r["threads"]))].append(float(r["seconds"]))
             hashes[r["workload"]].add(r["hash"])
@@ -134,11 +138,17 @@ def panel(y0, title, subtitle, rows, xmax, ticks, ref_label, color_of, note_of, 
 
 
 def main():
+    global VERSION, C_RUNS, THREAD_RUN
+    if len(sys.argv) > 1:
+        VERSION, run = sys.argv[1], Path(sys.argv[2]).name
+        THREAD_RUN = run
+        C_RUNS = {w: run for w in sorted({r["workload"] for r in runs(run) if r["bend"] == "c"})}
+    out_path = ROOT / "docs" / f"results-2.0.{VERSION}.svg"
     ratios = c_ratios()
     speed = speedups()
     parts = []
     y = 16
-    p, h = panel(y, "How far Bend 2.0.39 is from handwritten C",
+    p, h = panel(y, f"How far Bend 2.0.{VERSION} is from handwritten C",
                  "CPU cycles of Bend's program per cycle of a C version that prints the same bits; one thread. "
                  "Lower is better.",
                  sorted(ratios.items(), key=lambda kv: kv[1]), 6, range(0, 7), "1x = as fast as C",
@@ -153,7 +163,7 @@ def main():
     parts += p
     y += h + 6
     parts.append(text(24, y + 8, "Core Ultra 7 155H. One thread: pinned to a P-core, user-mode cycles from perf stat. "
-                      "Medians over 5-7 rounds.", "foot"))
+                      f"Medians over {'-'.join(str(n) for n in sorted(set(ROUNDS.values())))} round{'s' if max(ROUNDS.values()) > 1 else ''}.", "foot"))
     parts.append(text(24, y + 24, "Source: runs.tsv in " + " and ".join(
         f"results/{r}" for r in sorted(set(C_RUNS.values()) | {THREAD_RUN})) + ".", "foot"))
     height = y + 40
@@ -187,10 +197,10 @@ def main():
   }"""
     svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{height:.0f}" viewBox="0 0 {W} {height:.0f}" '
            f'role="img" aria-labelledby="t">',
-           '<title id="t">Bend 2.0.39 against handwritten C, and its speedups on 16 threads</title>',
+           f'<title id="t">Bend 2.0.{VERSION} against handwritten C, and its speedups on 16 threads</title>',
            f"<style>{style}\n</style>", f'<rect class="bg" width="{W}" height="{height:.0f}"/>'] + parts + ["</svg>"]
-    OUT.write_text("\n".join(svg) + "\n")
-    print(f"{OUT.relative_to(ROOT)}")
+    out_path.write_text("\n".join(svg) + "\n")
+    print(f"{out_path.relative_to(ROOT)}")
     for w, v in sorted(ratios.items(), key=lambda kv: kv[1]):
         print(f"  C ratio  {w:15} {fmt(v)}")
     for w, v in sorted(speed.items(), key=lambda kv: -kv[1]):
