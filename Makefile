@@ -1,12 +1,12 @@
 # MetalBend's checks: the bits of every workload and C target against oracles.tsv, the tools' unit tests, and a
 # mutation run over both. No timings: run.sh and release.sh measure, on an idle machine. `make setup` first.
 export BEND_NO_TELEMETRY := 1
-export PATH := $(HOME)/.bend/bin:$(PATH)
+export PATH := $(HOME)/.bend/bin:$(HOME)/.elan/bin:$(PATH)
 PY := python3 -I
 
 .PHONY: setup data check test laws mutate
 
-setup:            ## install the pinned Bend (2.0.39) if missing; check clang and Python 3
+setup:            ## install the pinned Bend (2.0.39) and Lean (4.34.0) if missing; check clang and Python 3
 	scripts/setup.sh
 
 data:             ## data/dense.bin, the dense-read workloads' input (deterministic)
