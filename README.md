@@ -70,6 +70,18 @@ The numbers in `results/` come from one machine: a Core Ultra 7 155H, one thread
 power in the `performance` profile, the machine idle unless the result says otherwise. Instructions repeat between
 rounds to a few hundred in billions; cycles move by a few percent.
 
+## Checks
+
+```sh
+make setup     # Bend 2.0.39 (checked by SHA256), then clang and Python 3 checked
+make check     # every workload on 1 and 16 threads and every C target, against oracles.tsv
+make test      # analyze.py, scripts/chart.py and run.sh's thread guard on synthetic runs
+make mutate    # break the corpus and the tools on purpose; every mutant must be caught
+```
+
+`oracles.tsv` holds each workload's hash, as `run.sh` records it, from a run where every version and every C target
+printed it. CI runs all three on every push, bits only (GitHub's runners cannot count with `perf`).
+
 ## What it has found
 
 On Bend 2.0.35-2.0.39 (`NOTES.md` has each finding with its date and result folder):
