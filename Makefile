@@ -4,7 +4,7 @@ export BEND_NO_TELEMETRY := 1
 export PATH := $(HOME)/.bend/bin:$(PATH)
 PY := python3 -I
 
-.PHONY: setup data check test mutate
+.PHONY: setup data check test laws mutate
 
 setup:            ## install the pinned Bend (2.0.39) if missing; check clang and Python 3
 	scripts/setup.sh
@@ -17,6 +17,9 @@ check:            ## build every workload (1 and 16 threads) and every native.c,
 
 test:             ## analyze.py, scripts/chart.py and run.sh's thread guard on synthetic runs
 	$(PY) -m unittest discover -s tests -v
+
+laws:             ## laws/PROOF.bend checks (with --verdict) and every mutant of laws/mutants.sh is refused
+	cd laws && ./check.sh
 
 mutate:           ## break the corpus and the tools on purpose; every mutant must be caught (scripts/mutate.py)
 	$(PY) scripts/mutate.py
