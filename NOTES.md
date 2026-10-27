@@ -110,3 +110,17 @@ private lab.
   other order (bend-ml's `join_len` refuses it).
 - Not done: a count of each workload's output for the matrix products (C is written in place by index, with nothing
   for the checker to count but the loop's own steps).
+
+## 2026-10-27: the three v1 branches together
+
+- CI, the C targets and the laws merged into devel. On the merged tree: `make check` (eleven workloads on 1 and 16
+  threads, eleven C targets, every hash its oracle), `make test`, `make laws` (six laws, 16 mutants refused) and
+  `make mutate` pass. CI now runs `make laws` too.
+- Three mutants for `lib/bt.h`, the layers of the three new C targets: RMSNorm without its epsilon and a causal mask
+  one key short are caught; SiLU computed as x times the reciprocal instead of x over the sum survives, and so do
+  SiLU with `expf` and SiLU plus 1e-7. `block-step` prints only each step's loss, and those changes move the loss by
+  less than its last bit; a SiLU of zeros is caught. So the oracle of the whole-block workloads sees a layer's gross
+  errors, not one rounding. Hashing the final weights as well would see them; that changes the oracle of every
+  version, so it waits for the next run of all of them.
+- `make mutate`: 52 mutants, 46 caught, 6 expected to survive.
+
