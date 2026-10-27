@@ -115,7 +115,8 @@ the two loops over lists of cells, not about tensor-array's `Array` code, whose 
 
 A new `workloads/<name>/main.bend` that imports its packages at pinned versions, builds its inputs with `lib/mb.bend`'s
 deterministic values, and prints `lib/mb.bend`'s hash of its whole output. A C target goes next to it as `native.c`,
-with `lib/mb.h`'s inputs and hash, and must print the same hash. `run.sh` picks up every folder under `workloads/`.
+with `lib/mb.h`'s inputs and hash, and must print the same hash. Its hash goes in `oracles.tsv`, and `make check` must
+pass. `run.sh` and `make check` pick up every folder under `workloads/`.
 
 ## License
 
