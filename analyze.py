@@ -25,7 +25,8 @@ def spread(xs):
 
 def main(out):
     out = Path(out)
-    allruns = list(csv.DictReader(open(out / "runs.tsv"), delimiter="\t"))
+    with open(out / "runs.tsv") as f:
+        allruns = list(csv.DictReader(f, delimiter="\t"))
     for r in allruns:
         r["threads"] = int(r.get("threads") or 1)
     runs = [r for r in allruns if r["threads"] == 1]

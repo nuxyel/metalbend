@@ -49,7 +49,8 @@ NOTES = {
 
 
 def runs(name):
-    return list(csv.DictReader(open(ROOT / "results" / name / "runs.tsv"), delimiter="\t"))
+    with open(ROOT / "results" / name / "runs.tsv") as f:
+        return list(csv.DictReader(f, delimiter="\t"))
 
 
 def ok(r):
