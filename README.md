@@ -75,8 +75,10 @@ On Bend 2.0.35-2.0.39 (`NOTES.md` has each finding with its date and result fold
   `and` with the array's mask that every `Array.get` keeps (`repros/dot_mask.bend`, bendlang/bend#1781); for
   `softmax-ce` it is tensor-array walking each row as a list (fixed in tensor-array 0.1.17.0, which this corpus
   measured first).
-- **Threads**: every workload gives the same bytes at 1 and 16 threads. At 16 threads `block-step` runs 4.4x faster
-  and `matvec-bands` 4.1x; `mnist-step`, `softmax-ce`, `adamw` and `rmsnorm-step` barely use the threads (1.0-1.03x).
+- **Threads**: every workload gives the same bytes at 1 and 16 threads. At 16 threads `block-step` runs 4.4x faster,
+  `matvec-bands` 4.1x, `attention-step` 3.7x and `gemm-fork` 2.2x. The other seven gain nothing: `gemm-tile8` is
+  tensor-array's sequential product (`gemm-fork` is its parallel twin), `mnist-step`, `softmax-ce`, `adamw` and
+  `rmsnorm-step` run their loops one after another (1.0-1.04x), and the two file reads get slower (0.83x and 0.90x).
 
 ## The law and its limit
 
