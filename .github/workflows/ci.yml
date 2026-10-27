@@ -64,6 +64,12 @@ jobs:
           set -o pipefail
           make test 2>&1 | tee -a check.log
 
+      - name: Laws (the proofs, and every mutant refused)
+        shell: bash
+        run: |
+          set -o pipefail
+          make laws 2>&1 | tee -a check.log
+
       - name: Mutation run
         shell: bash
         run: |
