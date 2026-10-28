@@ -18,7 +18,7 @@ Each workload under `workloads/<name>/` has up to four parts:
 - **The target.** `native.c`, where there is one: a handwritten C version with the same order of operations, so the
   same bits, and the distance from Bend to native code becomes a ratio. The C targets are the yardstick here, not
   library code: my packages stay in Bend, and these files exist to measure how far Bend's output is from C.
-- **The laws.** Where Bend can prove it, a spec the fast code meets (`laws/`). There are six so far, each with its
+- **The laws.** Where Bend can prove it, a spec the fast code meets (`laws/`). There are ten so far, each with its
   limit stated below.
 
 The workloads import my published BendHub packages at pinned versions (`bend-ml-tensor-array@0.1.16.0`,
@@ -76,7 +76,7 @@ rounds to a few hundred in billions; cycles move by a few percent.
 make setup     # Bend 2.0.39 (checked by SHA256), then clang and Python 3 checked
 make check     # every workload on 1 and 16 threads and every C target, against oracles.tsv
 make test      # analyze.py, scripts/chart.py and run.sh's thread guard on synthetic runs
-make laws      # the six laws (with --verdict) and their 16 mutants, each refused
+make laws      # the ten laws (with --verdict) and their 22 mutants, each refused
 make mutate    # break the corpus and the tools on purpose; every mutant must be caught
 ```
 
@@ -110,7 +110,7 @@ The chart is drawn from the raw runs by `python3 -I scripts/chart.py`.
 
 ## The laws and their limits
 
-`laws/check.sh` proves six laws (with `--verdict` too) and runs 16 mutants, each one changed line that the checker
+`laws/check.sh` proves ten laws (with `--verdict` too) and runs 22 mutants, each one changed line that the checker
 must refuse. `laws/README.md` explains each in plain language.
 
 - `t8_is_dotr`: tensor-array's eight-wide dot and its scalar dot build the same expression, so the same bits under any
@@ -123,6 +123,10 @@ must refuse. `laws/README.md` explains each in plain language.
   product on the same arrays, the reason gemm-fork prints gemm-tile8's hashes. Limit: the leaves are the real code and
   the tree a model; parallel versus one after another, the U32 offsets and the packing are not proved, and two of the
   three products split by columns, which only `fork_cover` reaches.
+- `t8_cols_cells`, `t8_rows_cells`, `cells_len`, `gemm_t8_cells`: gemm-tile8's product, from tensor-array's entry
+  point down, writes n x m cells of C, each (row, column) once, row by row, on tensor-array's own code. Limit: it
+  lists the writes; that their U32 indexes land on different cells of C is not proved, nor anything about the values
+  or the tree of gemm-fork's blocks.
 
 ## Adding a workload
 
