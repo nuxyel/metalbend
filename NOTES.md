@@ -247,3 +247,12 @@ count repeated to within 0.0001% between rounds (cycles moved by up to 15%).
   new mutants of the hash itself (the second moments left out, in C and in Bend) are caught. 56 mutants, 51 caught,
   5 expected to survive (four equivalent, one no run reaches). Result: the whole-block oracle sees one rounding
   inside a layer.
+
+## 2026-10-27: block-step's GPU oracle parts from the CPU's once the weights are hashed
+
+- After merging the state hash (plan-v1 step 1) with the GPU lane (step 4), `gpu.bend` of rmsnorm-step and block-step
+  were made again from their `main.bend` (the import line alone changed).
+- rmsnorm-step on the GPU: `37901ab4cff27378`, the CPU's. block-step on the GPU: `015f98a384541840`, against the CPU's
+  `400cae69095e09cf`; the two losses keep their bits, the final state differs, as expected from CUDA's float `exp` in
+  SiLU and the softmax. Three runs and both toolkits (CUDA 12.9, 13.4) gave the same hash, and `--gpu off` gives the
+  CPU's on 1 and 16 threads. Result: `block-step:gpu` is the device's hash in `oracles.tsv`; `make check-gpu` passes.
