@@ -80,6 +80,8 @@ rounds, so that run measures the new C targets and the GPU lane at no extra sess
    gemm-fork's 0.94x is fewer instructions or only fewer cycles, can be read now. Diagnosis only: these counts do not go
    in the README or `results/`.
    Pass: a NOTES entry with the instruction ratios and the cause of 0.94x, or what is left for the idle run.
+   **Done 2026-10-27** (NOTES.md): fewer cycles, not fewer instructions (tensor-fork's column blocks keep B in L2;
+   the C was the plain order); gemm-fork now has its own blocked C; its cycle ratio waits for the idle run.
 4. **A GPU lane, wired and checked** (topic 4). Two or three workloads through tensor-gpu and BendTorch's gpu lane,
    printing the same hashes; `make check-gpu` (local, since CI has no GPU), and `run.sh` taking a GPU target with the
    kernel time. The kernel times themselves come from the launch-day run.
