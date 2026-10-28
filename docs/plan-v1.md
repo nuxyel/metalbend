@@ -87,6 +87,7 @@ rounds, so that run measures the new C targets and the GPU lane at no extra sess
 5. **A count law for the products** (optional, if it fits in a day). The matrix product gives r x m numbers, the way
    `bands_len` does for matvec, on tensor-array's real code. The parallel run over shared arrays stays out until Base
    has a fact that writes to different indexes commute.
+   **Done 2026-10-27** (NOTES): four laws, n x m writes of C on the real code from `gemm_any` down, six mutants.
 6. **A stable format** (topic 6). `docs/format.md` (what a workload is, `oracles.tsv`, `runs.tsv` and `env.tsv`, how a
    workload and its oracle are added), a VERSIONING like the other projects', CI's `v1/**` push trigger dropped, and
    clang pinned or its version recorded in `env.tsv`. The release PR and the tag `v1.0.0` wait for launch day, so that
