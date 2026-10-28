@@ -27,7 +27,7 @@ The workloads import my published BendHub packages at pinned versions (`bend-ml-
 | Workload | What | C target |
 |---|---|---|
 | `gemm-tile8` | tensor-array's matrix product, SmolLM2-135M's three feed-forward shapes | yes |
-| `gemm-fork` | the same products through tensor-fork's parallel blocks | yes (gemm-tile8's) |
+| `gemm-fork` | the same products through tensor-fork's parallel blocks | yes (in its blocks) |
 | `matvec-bands` | llama.bend's banded matrix-vector product, SmolLM2-1.7B's shapes | yes |
 | `softmax-ce` | tensor-array's softmax and cross-entropy | yes |
 | `mnist-step` | bend-ml's MNIST training step (784-128-10, batch 100) | yes |
