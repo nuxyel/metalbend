@@ -32,7 +32,7 @@ out.chmod(0o755)
 
 
 class Guard(unittest.TestCase):
-    def run_sh(self, threads, fake_threads=""):
+    def run_sh(self, threads, fake_threads="", rounds="0", fake=FAKE_BEND):
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             for f in ("run.sh", "analyze.py"):
@@ -41,13 +41,14 @@ class Guard(unittest.TestCase):
             (d / "workloads" / "block-step" / "main.bend").write_text("")
             (d / "data").mkdir()
             (d / "data" / "dense.bin").write_bytes(b"")
-            fake = d / "fake-bend"
-            fake.write_text(FAKE_BEND)
+            fake_src, fake = fake, d / "fake-bend"
+            fake.write_text(fake_src)
             fake.chmod(0o755)
             env = dict(os.environ, BEND_99=str(fake), VERSIONS="99", WORKLOADS="block-step", THREADS=threads,
-                       ROUNDS="0", OUT="results/t", FAKE_THREADS=fake_threads)
+                       ROUNDS=rounds, OUT="results/t", FAKE_THREADS=fake_threads)
             p = subprocess.run(["bash", str(d / "run.sh")], env=env, capture_output=True, text=True, timeout=120)
             peaks = (d / "results" / "t" / "threads.tsv").read_text().splitlines()[1:]
+            self.summary = (d / "results" / "t" / "summary.md").read_text() if p.returncode == 0 else ""
             return p, peaks
 
     def test_a_version_that_ignores_the_thread_option_stops_the_run(self):
@@ -71,6 +72,14 @@ class Guard(unittest.TestCase):
         p, peaks = self.run_sh("1 16")
         self.assertEqual(p.returncode, 0, p.stderr)
         self.assertEqual(peaks, ["99\t1\t1", "99\t16\t16"])
+
+    def test_nothing_built_runs_no_rounds(self):
+        # an empty list of cases once fed one empty case to the rounds, and analyze.py failed on it
+        fails = "#!/bin/sh\n[ \"$1\" = version ] && { echo bend 2.0.99; exit 0; }\nexit 1\n"
+        p, peaks = self.run_sh("1", rounds="1", fake=fails)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertEqual(peaks, [])
+        self.assertIn("No one-thread Bend runs", self.summary)
 
 
 if __name__ == "__main__":

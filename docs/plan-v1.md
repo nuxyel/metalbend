@@ -75,6 +75,8 @@ rounds, so that run measures the new C targets and the GPU lane at no extra sess
    so a change upstream in how Bend builds (bun, the tag layout) shows up now and not on the day. Its timings are thrown
    away; only the hashes are checked against `oracles.tsv`.
    Pass: it runs to the end and every hash matches; what broke, fixed in `release.sh` with a test in `tests/`.
+   **Done (2026-10-27, NOTES.md):** it ran end to end and its 55 hashes are their oracles, once run.sh used the source
+   builds it had been missing.
 3. **gemm-fork under its C, read from the code and the instruction counts.** Instructions repeat between rounds even
    on a busy machine (cycles do not), so the Bend / C ratio in instructions for the five new targets, and whether
    gemm-fork's 0.94x is fewer instructions or only fewer cycles, can be read now. Diagnosis only: these counts do not go

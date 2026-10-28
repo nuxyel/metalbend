@@ -59,8 +59,11 @@ for w in $WORKLOADS; do
     bin=build/$v/$w
     mkdir -p "build/$v"
     if [ -x "$bin" ] && [ "${REBUILD:-0}" = 0 ]; then continue; fi
+    # resolved here, not inside the subshell: after its cd, bend_of would miss build/bin/<n> and fall back to an
+    # installed release (or none, for a version newer than the installed ones)
+    bend=$(bend_of "$v")
     t0=$(date +%s.%N)
-    if (cd "workloads/$w" && "$(bend_of "$v")" main.bend -o "../../$bin") > "build/$v/$w.log" 2>&1; then st=ok; else st=fail; rm -f "$bin"; fi
+    if (cd "workloads/$w" && "$bend" main.bend -o "../../$bin") > "build/$v/$w.log" 2>&1; then st=ok; else st=fail; rm -f "$bin"; fi
     t1=$(date +%s.%N)
     echo -e "$w\t$v\t$st\t$(awk "BEGIN{printf \"%.2f\", $t1 - $t0}")" | tee -a "$OUT/builds.tsv"
   done
@@ -105,6 +108,8 @@ for w in $WORKLOADS; do
   for v in $VERSIONS; do for t in $THREADS; do [ -x "build/$v/$w" ] && pairs+=("$w:$v:$t"); done; done
   [ -x "build/c/$w" ] && pairs+=("$w:c:1")
 done
+# nothing built: no rounds (an empty pairs would still feed one empty case to the shuffle)
+[ "${#pairs[@]}" -gt 0 ] || ROUNDS=0
 for r in $(seq 1 "$ROUNDS"); do
   mapfile -t order < <(printf '%s\n' "${pairs[@]}" | python3 -I -c "import random,sys; l=sys.stdin.read().split(); random.Random($r).shuffle(l); print('\n'.join(l))")
   for p in "${order[@]}"; do
