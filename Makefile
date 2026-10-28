@@ -15,7 +15,7 @@ data:             ## data/dense.bin, the dense-read workloads' input (determinis
 check:            ## build every workload (1 and 16 threads) and every native.c, fail on a hash that is not its oracle
 	scripts/check_oracles.sh
 
-test:             ## analyze.py, scripts/chart.py and run.sh's thread guard on synthetic runs
+test:             ## analyze.py, chart.py, oracle_diff.py and run.sh's guard on synthetic runs; release.sh on a fake upstream (needs bun)
 	$(PY) -m unittest discover -s tests -v
 
 laws:             ## laws/PROOF.bend checks (with --verdict) and every mutant of laws/mutants.sh is refused
