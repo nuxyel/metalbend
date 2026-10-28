@@ -78,3 +78,34 @@ that split by rows.
   when `cnt` is odd), the right block running `cnt / 2` rows, and the right block running first. The last one is
   harmless to the result, since the two blocks write different rows; the law refuses it because it states the same
   computation step by step, which is stricter than "the same arrays at the end".
+
+## t8_cols_cells, t8_rows_cells, cells_len and gemm_t8_cells: the product writes every cell of C once
+
+gemm-tile8's products write C in place, one cell at a time, into an `Array`, and an array has no length that could be
+counted the way `bands_len` counts a list. So these laws count the writes instead. `cells.bend` lists them: a write is
+a row i of A, a column j of B, and the index of C where their dot goes, and the list for n rows of m columns is row
+0's m writes, then row 1's, and so on. Running a list does each write with tensor-array's own cell and write functions
+(`t8_cell`, `t8_set`), in order.
+
+- `t8_cols_cells` and `t8_rows_cells`: tensor-array's column loop and row loop are exactly the writes of that list,
+  one after another: no cell skipped, none done twice, none out of order.
+- `cells_len`: n rows of m columns are n x m writes.
+- `gemm_t8_cells`: from the entry point gemm-tile8 calls (`gemm_any`, at par 0, with two rows or more, for all three
+  of its products and the accumulating forms), the product packs A and B into cells of 8 and then does the writes of
+  that list for its n rows and m columns. With `cells_len`, that is n x m cells of C, each (row, column) once.
+- Real code: tensor-array 0.1.16.0, imported, from `gemm_any` down to each cell; the list of writes is the only
+  model, and every write in it calls the real code. The proof uses the same trick as `bands_len` (a result carried with
+  its two descriptions in one record), because the arrays can be used only once.
+- What it does not say: that the index i x m + j of each write lands on a different cell of C. The code computes it in
+  U32, which wraps at 2^32, and an `Array` index wraps at the array's size. Neither happens in the corpus (the largest
+  C has 884,736 cells, and tensor-array proves that `cap_depth`, which sizes `Mat.zeros`, gives room for n x m), but
+  these laws do not connect the indexes to the cells. It says nothing either about the values (that is `t8_is_dotr`), the packing into cells
+  of 8, or the parallel path: gemm-fork's row blocks are `t8_rows` on part of the rows, which `t8_rows_cells` covers
+  (any first row and any row length), and its column blocks run `t8_cols` from a column j0, which `t8_cols_cells`
+  covers, but the tree that hands out the blocks over shared arrays stays out (`t8_blocks` has its limits). One-row
+  products take the scalar loop, which these laws do not reach; no product in gemm-tile8 has one row.
+- Six mutants: a row writing every other cell of C, each row writing one cell fewer than its columns, the sequential
+  product starting at C's second row, two-row products leaving the Tile8 path (all four in a copy of tensor-array
+  that still checks by itself), the list doing the first row n times, and the statement claiming one write more per
+  row. The list mutant keeps the count at n x m, so `cells_len` alone would let it through; the law about the real
+  code refuses it.
