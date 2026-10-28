@@ -58,6 +58,9 @@ BEND_39=~/.bend/bin/bend VERSIONS=39 ./run.sh  # point a version at a binary ins
 - `release.sh <version>` builds that release and the one before it from their tags (in a clone of bendlang/bend under
   `build/`, or `$BEND_SRC`), runs the corpus on both at 1 and 16 threads, and prints what changed. On 2.0.39 it took
   2m13s and found that release's change by itself. It needs `bun` too, and stops if the tag is not upstream yet.
+  At the end it compares every hash of the run with `oracles.tsv` (`scripts/oracle_diff.py`) and exits 1 if any case
+  failed or printed another output. `./release.sh --previous 2.0.40` prints the release it would compare against;
+  `ROUNDS=1 OUT=build/rehearsal ./release.sh 2.0.39` rehearses the whole day, bits only.
 
 On the day a release ships (2.0.40, say), on an idle machine:
 
@@ -75,7 +78,7 @@ rounds to a few hundred in billions; cycles move by a few percent.
 ```sh
 make setup     # Bend 2.0.39 (checked by SHA256), then clang and Python 3 checked
 make check     # every workload on 1 and 16 threads and every C target, against oracles.tsv
-make test      # analyze.py, scripts/chart.py and run.sh's thread guard on synthetic runs
+make test      # analyze.py, scripts/chart.py, oracle_diff.py, run.sh's guard, release.sh on a fake upstream
 make laws      # the six laws (with --verdict) and their 16 mutants, each refused
 make mutate    # break the corpus and the tools on purpose; every mutant must be caught
 ```
