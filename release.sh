@@ -23,6 +23,8 @@ old=${2:-$(git -C "$src" tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed
 git -C "$src" rev-parse -q --verify "refs/tags/v$old" > /dev/null || { echo "no tag v$old in bendlang/bend" >&2; exit 2; }
 if [ "$previous_only" = 1 ]; then echo "$old"; exit 0; fi
 mkdir -p build/bin build/src
+# a source tree removed by hand (rm -rf build/src) stays registered in the clone, and worktree add would refuse it
+git -C "$src" worktree prune
 # versions run.sh knows as installed releases go back to those when release.sh ends, failed or not: their source
 # wrappers and builds would otherwise shadow the installed binaries in every later run.sh
 cleanup() {
