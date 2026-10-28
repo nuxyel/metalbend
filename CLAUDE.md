@@ -2,12 +2,13 @@
 
 A corpus of real ML workloads for Bend 2's compiler: each with a spec, a bit oracle, a handwritten C target and
 hardware-counter timings, run on every Bend release. The fourth project after bend-ml, llama.bend and BendTorch
-(chosen 2026-10-25; the analysis is in Renan's private notes, never linked from here). Public since Renan's decision of
-2026-10-27; nothing is pushed to `main` without him.
+(chosen 2026-10-25; the analysis is in Renan's private notes, never linked from here). Private again since 2026-10-27 (public for about an
+hour that day); the launch is Renan's call. Nothing is pushed to `main` without him.
 
 ## Where things are
 
-- `docs/plan-v0.md`: the current plan, its success and stop criteria.
+- `docs/plan-v1.md`: the current plan and its next steps (`docs/plan-v0.md` before it). `docs/format.md`: the files
+  1.x keeps stable; `docs/VERSIONING.md`: release numbers.
 - `NOTES.md` (from the first experiment on): every finding and measurement, by date.
 - `workloads/<name>/`: `main.bend`, later `native.c` (same bits), `gpu.bend` (a GPU target, `make check-gpu`),
   `README.md`. `repros/`: minimal upstream cases. `run.sh`: build and measure. `results/<date>/`: one line per run.
