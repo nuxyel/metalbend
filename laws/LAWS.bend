@@ -3,6 +3,7 @@ import Base
 import bend-ml-tensor-array@0.1.16.0/main.bend as TA
 import ./t8_dotr.bend as D
 import ./fork.bend as F
+import ./cells.bend as C
 
 # LAW (t8_is_dotr): on lines that are a whole number of Tile8 cells, the Tile8 dot and the scalar dot build the same
 # expression from the same starting sums, so they agree under any arithmetic: F32, bit for bit, included.
@@ -71,3 +72,56 @@ law t8_blocks:
   for +mu: U32
   for -g: TA.TG
   {F.blocks(ac, d, cnt, m, tk, tku, rot, i0, mu, g) == TA.t8_rows(ac, cnt, m, tk, tku, rot, i0, mu, g) : TA.TG}
+
+# LAW (t8_cols_cells): tensor-array's column loop over m columns of row i is the m writes of C.cols, one per column, in
+# order, each the real cell write. About the real code; the list is the model (cells.bend).
+law t8_cols_cells:
+  for +ac: Bool
+  for +m: Nat
+  for +tk: Nat
+  for +tku: U32
+  for +rot: Nat
+  for +i: U32
+  for +j: U32
+  for +cidx: U32
+  for g: TA.TG
+  {TA.t8_cols(ac, m, tk, tku, rot, i, j, cidx, g) == C.run(ac, tk, tku, rot, C.cols(m, i, j, cidx), g) : TA.TG}
+
+# LAW (t8_rows_cells): tensor-array's row loop over n rows of m columns is the writes of C.cells, row by row. About the
+# real code; the list is the model.
+law t8_rows_cells:
+  for +ac: Bool
+  for +n: Nat
+  for +m: Nat
+  for +tk: Nat
+  for +tku: U32
+  for +rot: Nat
+  for +i: U32
+  for +mu: U32
+  for g: TA.TG
+  {TA.t8_rows(ac, n, m, tk, tku, rot, i, mu, g) == C.run(ac, tk, tku, rot, C.cells(n, m, i, mu), g) : TA.TG}
+
+# LAW (cells_len): n rows of m columns are n x m writes.
+law cells_len:
+  for +n: Nat
+  for +m: Nat
+  for +i: U32
+  for +mu: U32
+  {List.length(&2, C.W, C.cells(n, m, i, mu)) == Nat.mul(n, m) : Nat}
+
+# LAW (gemm_t8_cells): gemm-tile8's product (tensor-array's gemm_any at par 0, two rows or more, every form: A · B,
+# A · Bt, At · B, into C or added to it) packs A and B and then does the writes of C.cells for its n rows of m
+# columns: n x m cells of C, each once, row by row, by cells_len. About the real code from the entry point down.
+law gemm_t8_cells:
+  for +ac: Bool
+  for +n: Nat
+  for +m: Nat
+  for +k: Nat
+  for +arow: U32
+  for +sa: U32
+  for +sb: U32
+  for +bcol: U32
+  for a: Array<F32>
+  for b: Array<F32>
+  for c: Array<F32>
+  {TA.gemm_any(ac, TA.split_depth(0n, 2n+n, m, k), 2n+n, m, k, arow, sa, sb, bcol, a, b, c) == C.gemm(ac, 2n+n, m, k, arow, sa, sb, bcol, a, b, c) : TA.G}

@@ -50,6 +50,19 @@ mutants=(
     "blocks: the right block runs cnt / 2 rows (an odd count loses its last row)"
   fork.bend 's/blocks(ac, q, Nat.sub(cnt, Nat.div(cnt, 2n)), m, tk, tku, rot, adv(Nat.div(cnt, 2n), i0), mu, blocks(ac, q, Nat.div(cnt, 2n), m, tk, tku, rot, i0, mu, g))/blocks(ac, q, Nat.div(cnt, 2n), m, tk, tku, rot, i0, mu, blocks(ac, q, Nat.sub(cnt, Nat.div(cnt, 2n)), m, tk, tku, rot, adv(Nat.div(cnt, 2n), i0), mu, g))/'
     "blocks: the right block runs first (the same arrays at the end, since the blocks write other rows: the law is stricter)"
+  # t8_cols_cells, t8_rows_cells, cells_len, gemm_t8_cells: tensor-array's product, and the list of its writes
+  ta 's/t8_cols(ac, p, tk, tku, rot, i, (j + 1 : U32), (cidx + 1 : U32), t8_set(/t8_cols(ac, p, tk, tku, rot, i, (j + 1 : U32), (cidx + 2 : U32), t8_set(/'
+    "tensor-array: a row writes every other cell of C"
+  ta 's/mu, t8_cols(ac, m, tk, tku, rot, i, 0, (i \* mu : U32), g))/mu, t8_cols(ac, Nat.sub(m, 1n), tk, tku, rot, i, 0, (i * mu : U32), g))/'
+    "tensor-array: each row writes one cell fewer than its columns"
+  ta 's/t8_rows(ac, n, m, tk, tku, rot, 0, U32.from_nat(m), TG{ta, tb, c})/t8_rows(ac, n, m, tk, tku, rot, 1, U32.from_nat(m), TG{ta, tb, c})/'
+    "tensor-array: the sequential product starts at C's second row"
+  ta 's/gemm_any3(ac, Nat.is_le(n, 1n),/gemm_any3(ac, Nat.is_le(n, 2n),/'
+    "tensor-array: two-row products leave the Tile8 path for the scalar one"
+  cells.bend 's/cells(p, m, (i + 1 : U32), mu))$/cells(p, m, i, mu))/'
+    "writes: the list does the first row n times (still n x m writes: only the law about the real code refuses it)"
+  LAWS.bend 's/== Nat.mul(n, m) : Nat}/== Nat.mul(n, 1n+m) : Nat}/'
+    "statement: cells_len claims one write more per row"
 )
 
 tmp=$(mktemp -d)

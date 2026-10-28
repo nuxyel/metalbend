@@ -18,7 +18,7 @@ check:            ## build every workload (1 and 16 threads) and every native.c,
 test:             ## analyze.py, scripts/chart.py and run.sh's thread guard on synthetic runs
 	$(PY) -m unittest discover -s tests -v
 
-laws:             ## laws/PROOF.bend checks (with --verdict) and every mutant of laws/mutants.sh is refused
+laws:             ## the ten laws of laws/ check (with --verdict) and each of their 22 mutants is refused
 	cd laws && ./check.sh
 
 mutate:           ## break the corpus and the tools on purpose; every mutant must be caught (scripts/mutate.py)
