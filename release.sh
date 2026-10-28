@@ -23,6 +23,15 @@ old=${2:-$(git -C "$src" tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed
 git -C "$src" rev-parse -q --verify "refs/tags/v$old" > /dev/null || { echo "no tag v$old in bendlang/bend" >&2; exit 2; }
 if [ "$previous_only" = 1 ]; then echo "$old"; exit 0; fi
 mkdir -p build/bin build/src
+# versions run.sh knows as installed releases go back to those when release.sh ends, failed or not: their source
+# wrappers and builds would otherwise shadow the installed binaries in every later run.sh
+cleanup() {
+  for v in "$old" "$new"; do
+    n=${v##*.}
+    if [ "$n" -ge 35 ] && [ "$n" -le 39 ]; then rm -rf "build/bin/$n" "build/$n"; fi
+  done
+}
+trap cleanup EXIT
 for v in "$old" "$new"; do
   n=${v##*.}
   wt=$PWD/build/src/$v
@@ -38,11 +47,6 @@ done
 for v in "$old" "$new"; do rm -rf "build/${v##*.}"; done
 OUT=${OUT:-results/$(date +%F)-$new} VERSIONS="${old##*.} ${new##*.}" THREADS=${THREADS:-"1 16"} ./run.sh > /dev/null
 out=${OUT:-results/$(date +%F)-$new}
-# versions run.sh knows as installed releases go back to those: drop their source wrappers and builds
-for v in "$old" "$new"; do
-  n=${v##*.}
-  if [ "$n" -ge 35 ] && [ "$n" -le 39 ]; then rm -rf "build/bin/$n" "build/$n"; fi
-done
 echo "== $out/summary.md"
 sed -n '/## Beyond noise or differing outputs/,$p' "$out/summary.md"
 [ "${ROUNDS:-5}" -ge 3 ] || echo "(fewer than 3 rounds: nothing is marked beyond noise; the tables are in $out/summary.md)"
