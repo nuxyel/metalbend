@@ -41,12 +41,13 @@ The workloads import my published BendHub packages at pinned versions (`bend-ml-
 | `read-native` | a 16 MB weight file read with `File.read_at` | yes | |
 | `read-binary` | the same file read with `bend-ml-binary-read` | yes (read-native's) | |
 
-The three GPU targets print the CPU's hashes on my RTX 4050, so `oracles.tsv`'s `<name>:gpu` lines repeat them. For
-the products and the RMSNorm that is by design: tensor-gpu keeps tensor-array's order of additions, BendTorch's GPU
-layers compute each number with the CPU layer's own expression, and Bend builds the device code without fused
-multiply-add. For `block-step` the match is weaker than it looks: on the device SiLU and attention's
-softmax take CUDA's float `exp`, which rounds the last bit of some inputs differently from the host's (BendTorch's own
-GPU tests show it), and a difference that small passes unseen by an oracle that hashes only the two losses.
+On my RTX 4050, `gemm-tile8` and `rmsnorm-step` print the CPU's hashes on the GPU, by design: tensor-gpu keeps
+tensor-array's order of additions, BendTorch's GPU layers compute each number with the CPU layer's own expression, and
+Bend builds the device code without fused multiply-add. `block-step` does not: its losses keep the CPU's bits, but its
+final weights differ (`oracles.tsv` has `015f98a384541840` on the GPU, `400cae69095e09cf` on the CPU). On the device
+SiLU and attention's softmax take CUDA's float `exp`, which rounds the last bit of some inputs differently from the
+host's (BendTorch's own GPU tests show it). The GPU hash repeats from run to run and with CUDA 12.9 and 13.4, so it is
+the GPU target's own oracle, and the same binary with `--gpu off` must still print the CPU's.
 
 `repros/` has the minimal cases cut from the workloads, the kind of program an upstream issue can carry.
 
