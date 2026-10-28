@@ -5,8 +5,9 @@
 #
 # block-step: BendTorch's demo/smol_block.bend at v1.1.1 (one decoder block at SmolLM2-135M's sizes, 512 rows, AdamW
 # under MSE, weights and data from a hash of each index), unchanged but for the hub imports and this entry: two AdamW
-# steps (the first makes the optimizer's buffers), printing each loss's bits. The largest program in the corpus: the
-# place where a kernel's speed in a probe meets the code around it.
+# steps (the first makes the optimizer's buffers), printing each loss's bits, then one hash of the final weights and
+# both AdamW moments, so a rounding changed inside a layer shows even when the loss keeps its bits. The largest program
+# in the corpus: the place where a kernel's speed in a probe meets the code around it.
 #
 # One decoder block at SmolLM2-135M's sizes, trained with AdamW against a target under MSE: the workload where the
 # row-wise layers and the products are big enough for parallelism to pay, against its PyTorch twin
@@ -24,6 +25,7 @@ import Base
 import bendtorch@1.1.1.0/main.bend as T
 import bendtorch-gpu@1.1.1.0/main.bend as F
 import bend-ml-tensor-array@0.1.14.0/main.bend as TA
+import ../../lib/mb.bend as MB
 
 def M(r: Nat, c: Nat) -> Type:
   TA.Mat<r, c>
@@ -243,8 +245,42 @@ def tloop(k: Nat, +step: U32, +opt: T.OptCfg, tr: T.Train<P>) -> IO(T.Train<P>):
     case 1n+q:
       then(T.Train.step(~P, ~A(8n, D()), ~A(8n, D()), ~S(8n), ~A(8n, D()), ~Block(~8n), ~mse, opt, tr, input(step), target(step)), +l => tr2 => IO.bind(Unit, T.Train<P>, T.F32.print("loss", l), u => tloop(q, (step + 1 : U32), opt, tr2)))
 
+# ---- the final state: the weights and both AdamW moments, hashed as one array by lib/mb.bend's hash ----
+# Layer.store copies a value of P in the layers' dump order; the weights go first, then m, then v. The gradient is
+# not hashed: the step zeroes it, and the moments hold every step's gradients. Once, after the last step.
+
+def NP() -> U32:
+  T.Layer.count(P, A(8n, D()), A(8n, D()), S(8n), Block(~8n))
+
+def flat_v(r: T.PA<P>) -> Array<F32>:
+  match r:
+    case T.PA{p, xs, off}: xs
+
+def flat_m(v: P, r: T.PA<P>) -> Array<F32>:
+  match r:
+    case T.PA{p, xs, off}: flat_v(T.Layer.store(P, A(8n, D()), A(8n, D()), S(8n), Block(~8n), v, xs, off))
+
+def flat_w(m: P, v: P, r: T.PA<P>) -> Array<F32>:
+  match r:
+    case T.PA{p, xs, off}: flat_m(v, T.Layer.store(P, A(8n, D()), A(8n, D()), S(8n), Block(~8n), m, xs, off))
+
+# the three of them: 3 * NP() numbers
+def NS() -> Nat:
+  U32.to_nat((3 * NP() : U32))
+
+def flat(p: P, m: P, v: P) -> Array<F32>:
+  flat_w(m, v, T.Layer.store(P, A(8n, D()), A(8n, D()), S(8n), Block(~8n), p, T.zeros_a(NS()), 0))
+
+def show_state(tr: T.Train<P>) -> IO(Unit):
+  match tr:
+    case T.Train{p, g, T.TwoMom{m, v}, p1, p2, l}:
+      MB.show_hash(MB.hash(NS(), flat(p, m, v)))
+    case T.Train{p, g, st, p1, p2, l}:
+      IO.print("no moments")
+
 def main() -> IO(Unit):
   do IO<Unit>:
     T.OptCfg.check(cfg())
     tr : T.Train<P> <- tloop(2n, 0, cfg(), T.Train.new(~P, ~A(8n, D()), ~A(8n, D()), ~S(8n), ~Block(~8n), cfg(), params()))
+    show_state(tr)
     IO.print("done")
