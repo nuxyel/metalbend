@@ -256,3 +256,12 @@ count repeated to within 0.0001% between rounds (cycles moved by up to 15%).
   `400cae69095e09cf`; the two losses keep their bits, the final state differs, as expected from CUDA's float `exp` in
   SiLU and the softmax. Three runs and both toolkits (CUDA 12.9, 13.4) gave the same hash, and `--gpu off` gives the
   CPU's on 1 and 16 threads. Result: `block-step:gpu` is the device's hash in `oracles.tsv`; `make check-gpu` passes.
+
+## 2026-10-27: the format 1.x keeps, and the version numbers
+
+- `docs/format.md`: what a workload is, the oracle (the first 16 hex digits of SHA-256 over the whole output,
+  `<name>:gpu` for a GPU target), every file a run writes with its columns, and the steps to add a workload.
+  `docs/VERSIONING.md`: MAJOR when old results can no longer be compared, MINOR for a new workload, target, lane or
+  law, PATCH for fixes and a new Bend release's results.
+- CI pushes on `main` and `devel` only. clang stays unpinned: `env.tsv` records its version on every run, and CI checks
+  the bits with the runner's clang 18. Result: v1.0.0 is ready to tag; it waits for the 2.0.40 run.
