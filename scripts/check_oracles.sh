@@ -4,9 +4,13 @@
 #   scripts/check_oracles.sh                         # every workload, Bend on 1 and 16 threads, every native.c
 #   WORKLOADS="softmax-ce" THREADS=1 scripts/check_oracles.sh
 #   TARGETS=c scripts/check_oracles.sh                # the C targets only (TARGETS="bend c" by default)
+#   TARGETS=gpu scripts/check_oracles.sh              # the GPU targets only (make check-gpu): local, CI has no GPU
 # The hash is run.sh's: the first 16 hex digits of the SHA-256 of the program's whole stdout. Every workload needs a
 # line in oracles.tsv, and every line there a workload; a native.c next to a main.bend is picked up by itself and must
-# print the same hash. BEND names the compiler (bend on PATH by default), which must be Bend $PIN unless ANY_BEND=1.
+# print the same hash. A gpu.bend next to a main.bend is its GPU target (target gpu, never in the default
+# TARGETS): built with CUDA (scripts/cuda.sh), it must print the oracle of line <name>:gpu on the device, and <name>'s
+# own oracle on the CPU threads (+RTS --gpu off), on each thread count; with no toolkit or no GPU it is skipped with the
+# reason, not failed. BEND names the compiler (bend on PATH by default), which must be Bend $PIN unless ANY_BEND=1.
 # Builds go to $OUT (build/check by default), fresh on every call.
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -27,9 +31,20 @@ while IFS=$'\t' read -r w h; do
   [ "$w" = workload ] && continue
   [ -n "$w" ] && want[$w]=$h
 done < oracles.tsv
-for w in "${!want[@]}"; do [ -f "workloads/$w/main.bend" ] || bad "oracles.tsv names $w, which has no workloads/$w/main.bend"; done
+for w in "${!want[@]}"; do
+  case $w in
+    *:gpu) [ -f "workloads/${w%:gpu}/gpu.bend" ] || bad "oracles.tsv names $w, which has no workloads/${w%:gpu}/gpu.bend" ;;
+    *) [ -f "workloads/$w/main.bend" ] || bad "oracles.tsv names $w, which has no workloads/$w/main.bend" ;;
+  esac
+done
 
-if has bend; then
+if has gpu; then
+  . scripts/cuda.sh
+  why=$(gpu_missing)
+  if [ -n "$why" ]; then echo "skip the GPU targets: $why"; TARGETS=${TARGETS//gpu/}; fi
+  [ -n "${TARGETS// /}" ] || { [ "$fail" = 0 ] && echo "check: nothing else to run"; exit "$fail"; }
+fi
+if has bend || has gpu; then
   got=$("$BEND" version 2>/dev/null | awk '{print $NF}')
   [ "$got" = "$PIN" ] || [ "${ANY_BEND:-0}" = 1 ] || { echo "$BEND is Bend ${got:-?}, not $PIN (ANY_BEND=1 to run it anyway)"; exit 2; }
 fi
@@ -67,6 +82,18 @@ for w in $WORKLOADS; do
       LABEL="$w, C target" run "$w" "$OUT/$w.c"; n=$((n + 1))
     else
       bad "$w: C build failed ($(tail -c 300 "$OUT/$w.c.log" | tr '\n' ' '))"
+    fi
+  fi
+  if has gpu && [ -f "workloads/$w/gpu.bend" ]; then
+    if [ -z "${want[$w:gpu]:-}" ]; then bad "$w: a gpu.bend and no oracle $w:gpu (add its line to oracles.tsv)"
+    elif gpu_build "$w" "$BEND" "$OUT/$w.gpu" > "$OUT/$w.gpu.log" 2>&1; then
+      LABEL="$w, GPU target, on the GPU" run "$w:gpu" "$OUT/$w.gpu"; n=$((n + 1))
+      for t in $THREADS; do
+        LABEL="$w, GPU target, --gpu off, $t thread$([ "$t" = 1 ] || echo s)" run "$w" "$OUT/$w.gpu" +RTS --gpu off --threads "$t" -RTS
+        n=$((n + 1))
+      done
+    else
+      bad "$w: GPU build failed or links no libnvrtc ($(tail -c 300 "$OUT/$w.gpu.log" | tr '\n' ' '))"
     fi
   fi
 done
