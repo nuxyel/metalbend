@@ -92,7 +92,8 @@ rounds, so that run measures the new C targets and the GPU lane at no extra sess
    Pass: the same hash on the GPU as on the CPU, or the difference recorded and explained.
    **Done on 2026-10-27** (NOTES.md): gemm-tile8, rmsnorm-step and block-step have GPU targets with the CPU's hashes,
    `make check-gpu`, and `GPU=1 ./run.sh` with the kernels' time from nsys; block-step's match is the losses-only
-   oracle's (CUDA's float `exp`).
+   oracle's (CUDA's float `exp`). With the weights hashed (step 1), block-step's GPU hash parts from the CPU's in its
+   final state (`015f98a384541840`, the same over three runs and two toolkits), and is its `:gpu` oracle.
 5. **A count law for the products** (optional, if it fits in a day). The matrix product gives r x m numbers, the way
    `bands_len` does for matvec, on tensor-array's real code. The parallel run over shared arrays stays out until Base
    has a fact that writes to different indexes commute.
@@ -101,12 +102,17 @@ rounds, so that run measures the new C targets and the GPU lane at no extra sess
    workload and its oracle are added), a VERSIONING like the other projects', CI's `v1/**` push trigger dropped, and
    clang pinned or its version recorded in `env.tsv`. The release PR and the tag `v1.0.0` wait for launch day, so that
    v1.0.0 carries 2.0.40's results.
+   **Done 2026-10-27:** `docs/format.md`, `docs/VERSIONING.md`, CI on `main` and `devel` only; clang stays unpinned,
+   its version is `env.tsv`'s `clang` line on every run (CI's runner checks the bits with clang 18, this machine with
+   clang 23).
 7. **The launch drafts brought up to date** (private notes): eleven C targets, six laws, the oracle's limit or its fix,
    with the new numbers left as blanks for the launch-day run.
+   **Done 2026-10-27:** the X thread and the LinkedIn post say eleven C targets, ten laws and the GPU lane's
+   difference, with `[2.0.40: ...]` blanks; the launch-day checklist runs `make check-gpu` and `GPU=1 ./release.sh`.
 
 ### On the idle machine, the day Bend 2.0.40 ships
 
-8. **Launch day** (topic 7). `./release.sh 2.0.40` on the idle machine (mains power, `performance` profile, no agents
+8. **Launch day** (topic 7). `make check-gpu && GPU=1 ./release.sh 2.0.40` on the idle machine (mains power, `performance` profile, no agents
    running), with the GPU lane: from that one run, 2.0.40 against 2.0.39, the cycle ratios of the five new C targets,
-   the GPU kernel times, and the chart again. Then the results folder, NOTES, README, the release PR and `v1.0.0`, the
+   the GPU kernel times, whether a source build counts the release's instructions, and the chart again. Then the results folder, NOTES, README, the release PR and `v1.0.0`, the
    repository public, and the posts. The checklist is in the launch notes.
