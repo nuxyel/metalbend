@@ -124,3 +124,19 @@ private lab.
   version, so it waits for the next run of all of them.
 - `make mutate`: 52 mutants, 46 caught, 6 expected to survive.
 
+
+## 2026-10-27: plan v1 step 5, a count law for the products
+
+- Result: gemm-tile8's product writes n x m cells of C, each (row, column) once, row by row, proved on tensor-array
+  0.1.16.0's own code from `gemm_any` down (par 0, two rows or more). `make laws`: ten laws, 22 mutants refused.
+- C is an `Array` written in place, with no length to count, so the laws count the writes: `laws/cells.bend` lists
+  them (the only model), and each write runs tensor-array's `t8_cell` and `t8_set`. `t8_cols_cells` and
+  `t8_rows_cells`: the column and row loops are exactly those writes, in order; `cells_len`: n x m of them;
+  `gemm_t8_cells`: the entry point gemm-tile8 calls packs A and B and then does them. The proof carries each result
+  with its two descriptions in one record, as `bands_len` does, because the arrays can be used once.
+- Six mutants: four in tensor-array's code (every other cell, one cell fewer a row, starting at row 1, two-row
+  products off the Tile8 path), one in the list (the first row n times, which keeps the count and only the law about
+  the real code refuses), one in the statement.
+- Not proved: that the U32 index of each write is a different cell of C (U32 and the array's mask both wrap; nothing in
+  the corpus comes near), the one-row scalar path, and gemm-fork's tree over shared arrays. Its leaves are covered:
+  row blocks are `t8_rows` from any row, column blocks run `t8_cols` from any column.
