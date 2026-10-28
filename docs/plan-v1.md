@@ -58,23 +58,45 @@ reuse their twin's). Six laws instead of one, 16 mutants refused, two of them ab
 (`bands_len`, `matvec_l_len`, `t8_rows_split`). Left: the parallel run of tensor-fork's blocks over shared arrays, and
 its split by columns, are not proved (Base has no fact that writes to different indexes commute).
 
-Next, in order:
+Next. A longer history (2.0.30-2.0.34) is dropped (Renan, 2026-10-27): what matters is every release from here on.
+The rest splits by what it needs. Everything that is bits, code or docs is done now, on a busy machine; every number
+that is a timing waits for one idle run, the day 2.0.40 ships, because `release.sh 2.0.40` runs 2.0.39 in the same
+rounds, so that run measures the new C targets and the GPU lane at no extra session.
+
+### Without an idle machine, in order
 
 1. **A stronger oracle for the whole-block workloads.** `block-step`, `attention-step` and `rmsnorm-step` print only
-   each step's loss, so one rounding changed in a layer can pass (the SiLU mutants). Hash the final weights as well,
-   then rerun every version to rebuild `oracles.tsv` (bits only, no idle machine needed).
-   Pass: the SiLU rounding mutants are caught, and the old and new hashes are both recorded.
-2. **The five new C targets, measured.** An idle run of 2.0.39 with the eleven targets: the Bend / C ratios of
-   rmsnorm-step, attention-step and block-step, and why gemm-fork came out under 1.0x against its C in a busy smoke
-   (0.94x in cycles, where gemm-tile8 is 1.33x).
-3. **A GPU lane** (topic 4). Two or three workloads through tensor-gpu and BendTorch's gpu lane, timed by the kernel
-   and checked by the same bits, so the corpus follows the compiler's CUDA output too.
-   Pass: the same hash on the GPU as on the CPU, or the difference recorded, and a kernel time per version.
-4. **A longer history** (topic 5). Run the corpus on 2.0.30-2.0.34, where the workloads build, on the idle machine at
-   night; a workload that does not build on a version is recorded, not patched.
-   Pass: a series from the oldest version that builds to 2.0.39, in `results/`.
-5. **A stable format** (topic 6). `docs/format.md` (what a workload is, `runs.tsv` and `env.tsv`, how a workload and its
-   oracle are added), a VERSIONING like the other projects', and the tag `v1.0.0` on `main` through a release PR.
-   Small: drop CI's `v1/**` push trigger, and decide whether to pin clang.
-6. **Launch day** (topic 7). When Bend 2.0.40 ships: `./release.sh 2.0.40` on the idle machine, its results, the chart
-   again, the repository public, then the posts. The checklist is in the launch notes.
+   each step's loss, so one rounding changed in a layer can pass (the SiLU mutants). Hash the final weights (and
+   gradients where the workload has them) as well, the same in each `native.c`, then rebuild `oracles.tsv` on every
+   version (bits only).
+   Pass: the SiLU rounding mutants move from expected survivors to caught; the old and new hashes are both recorded in
+   NOTES.
+2. **Rehearse launch day, bits only.** `ROUNDS=1 ./release.sh 2.0.39` end to end (build from the tags, run, analyze),
+   so a change upstream in how Bend builds (bun, the tag layout) shows up now and not on the day. Its timings are thrown
+   away; only the hashes are checked against `oracles.tsv`.
+   Pass: it runs to the end and every hash matches; what broke, fixed in `release.sh` with a test in `tests/`.
+3. **gemm-fork under its C, read from the code and the instruction counts.** Instructions repeat between rounds even
+   on a busy machine (cycles do not), so the Bend / C ratio in instructions for the five new targets, and whether
+   gemm-fork's 0.94x is fewer instructions or only fewer cycles, can be read now. Diagnosis only: these counts do not go
+   in the README or `results/`.
+   Pass: a NOTES entry with the instruction ratios and the cause of 0.94x, or what is left for the idle run.
+4. **A GPU lane, wired and checked** (topic 4). Two or three workloads through tensor-gpu and BendTorch's gpu lane,
+   printing the same hashes; `make check-gpu` (local, since CI has no GPU), and `run.sh` taking a GPU target with the
+   kernel time. The kernel times themselves come from the launch-day run.
+   Pass: the same hash on the GPU as on the CPU, or the difference recorded and explained.
+5. **A count law for the products** (optional, if it fits in a day). The matrix product gives r x m numbers, the way
+   `bands_len` does for matvec, on tensor-array's real code. The parallel run over shared arrays stays out until Base
+   has a fact that writes to different indexes commute.
+6. **A stable format** (topic 6). `docs/format.md` (what a workload is, `oracles.tsv`, `runs.tsv` and `env.tsv`, how a
+   workload and its oracle are added), a VERSIONING like the other projects', CI's `v1/**` push trigger dropped, and
+   clang pinned or its version recorded in `env.tsv`. The release PR and the tag `v1.0.0` wait for launch day, so that
+   v1.0.0 carries 2.0.40's results.
+7. **The launch drafts brought up to date** (private notes): eleven C targets, six laws, the oracle's limit or its fix,
+   with the new numbers left as blanks for the launch-day run.
+
+### On the idle machine, the day Bend 2.0.40 ships
+
+8. **Launch day** (topic 7). `./release.sh 2.0.40` on the idle machine (mains power, `performance` profile, no agents
+   running), with the GPU lane: from that one run, 2.0.40 against 2.0.39, the cycle ratios of the five new C targets,
+   the GPU kernel times, and the chart again. Then the results folder, NOTES, README, the release PR and `v1.0.0`, the
+   repository public, and the posts. The checklist is in the launch notes.
