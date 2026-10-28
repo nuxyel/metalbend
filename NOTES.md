@@ -124,3 +124,45 @@ private lab.
   version, so it waits for the next run of all of them.
 - `make mutate`: 52 mutants, 46 caught, 6 expected to survive.
 
+
+## 2026-10-27: plan v1 step 3, gemm-fork under its C
+
+Busy machine, instructions only, a diagnosis, not a result: these counts stay out of the README and `results/`. Bend
+2.0.39 on one thread, `taskset -c 3`, 3 rounds of `run.sh` into a scratch folder; every hash its oracle, and every
+count repeated to within 0.0001% between rounds (cycles moved by up to 15%).
+
+| workload | Bend Minstr | C Minstr | Bend / C, instructions |
+|---|---:|---:|---:|
+| adamw | 17869.9 | 9244.0 | 1.93x |
+| attention-step (new) | 19573.5 | 9008.2 | 2.17x |
+| block-step (new) | 31400.6 | 14984.7 | 2.10x |
+| gemm-fork (new) | 13906.9 | 8117.3 | 1.71x |
+| gemm-tile8 | 13769.2 | 8121.9 | 1.70x |
+| matvec-bands | 10634.6 | 3258.5 | 3.26x |
+| mnist-step | 15939.1 | 6326.0 | 2.52x |
+| read-binary (new) | 21.2 | 11.8 | 1.80x |
+| read-native | 600.2 | 11.8 | 51.0x |
+| rmsnorm-step (new) | 11815.6 | 1752.4 | 6.74x |
+| softmax-ce | 7819.2 | 1603.0 | 4.88x |
+
+(gemm-fork's C count is its new blocked target, below; against gemm-tile8's C, 8121.9, it was 1.71x too.)
+
+- **gemm-fork's 0.94x is fewer cycles, not fewer instructions.** Its Bend runs 1.0% *more* instructions than
+  gemm-tile8's (13906.9 M against 13769.2 M: the fork tree, the packing in blocks and the column loop), and 14% fewer
+  cycles (2.56-2.61 G against 3.02-3.04 G in the same minutes; IPC 5.3 against 4.6). The cause is the order of the
+  cells. At par 3 tensor-fork splits each product into 8 blocks, by columns when C is wider than tall: nt
+  (256 x 1536) and nn (256 x 576) run every row of C over 1/8 of the columns at a time, so the block's packed lines
+  of B (442 KB) stay in the 2 MB L2 while A's rows go by. tensor-array's sequential order, which gemm-tile8 runs,
+  streams all of packed B (3.5 MB) once per row of C. tn (1536 x 576) splits by rows, which is the sequential order.
+  `mem_load_retired.l2_miss/u`: 58-76 M in gemm-tile8's Bend, 0.25-0.36 M in gemm-fork's.
+- **The C target was the plain order.** gemm-fork's `native.c` included gemm-tile8's, so the 0.94x compared a blocked
+  Bend loop with an unblocked C loop. It now runs tensor-fork's blocks (8, halved as `cpar` and `rpar` halve them),
+  the same cells and the same bits. The blocking does much less for C: its plain order already misses L2 only 3-5 M
+  times (against Bend's 58-76 M; why the prefetcher keeps up with C's stream and not with Bend's is not read here),
+  and the blocked C takes 2.25-2.28 G cycles against 2.27-2.51 G for the plain one, within this machine's noise. So on
+  this run gemm-fork is about 1.15x its blocked C in cycles, near gemm-tile8's 1.30x less the cache gain Bend gets
+  from the blocks. In my own 3-round run the old pairing gave 1.13x, not 0.94x: the C's cycles move most with the
+  load, plausibly because its plain order leans on L3 (shared with whatever else runs) where the blocked loops sit in
+  L2.
+- Left for the idle run: the cycle ratio of gemm-fork against its blocked C, and whether a busy L3 is what moved the
+  old pairing to 0.94x.
