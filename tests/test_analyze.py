@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from synth import row, series, write
+from synth import gpu_row, row, series, write, write_gpu
 import analyze
 
 M = 1_000_000
@@ -21,15 +21,17 @@ def scaled(xs, f):
 
 
 class Analyze(unittest.TestCase):
-    def summary(self, rows):
+    def summary(self, rows, gpu=None):
         with tempfile.TemporaryDirectory() as d:
             out = write(Path(d) / "run", rows)
+            if gpu is not None:
+                write_gpu(out, gpu)
             with contextlib.redirect_stdout(io.StringIO()):
                 analyze.main(out)
             return (out / "summary.md").read_text()
 
-    def findings(self, rows):
-        text = self.summary(rows)
+    def findings(self, rows, gpu=None):
+        text = self.summary(rows, gpu)
         return text.split("## Beyond noise or differing outputs\n", 1)[1].strip().splitlines()
 
     def table_row(self, text, workload, bend):
@@ -131,6 +133,50 @@ class Analyze(unittest.TestCase):
         text = self.summary(rows)
         self.assertIn("| 1.00x | **no** |", text)
         self.assertEqual(self.findings(rows), ["- w: 2.0.39 prints different outputs across thread counts"])
+
+    def gpu_section(self, text):
+        return text.split("## GPU targets", 1)[1].split("## Beyond noise", 1)[0]
+
+    def test_no_gpu_table_without_gpu_runs(self):
+        self.assertNotIn("## GPU targets", self.summary(series("w", 39, BASE)))
+
+    def test_the_gpu_target(self):
+        # wall times 2.0, 2.0, 2.2 (median 2.0, spread 10%); kernel times 50, 51, 50 ms over 120 kernels
+        gpu = [gpu_row(1, "w", 39, 2.0, 50.0, 120), gpu_row(2, "w", 39, 2.2, 51.0, 120), gpu_row(3, "w", 39, 2.0, 50.0, 120)]
+        text = self.summary(series("w", 39, BASE), gpu)
+        self.assertIn("| w | 2.0.39 | 2.000 | 10.00% | 50.0 | 2.00% | 120 | aaaaaaaaaaaaaaaa | yes |", text)
+        self.assertEqual(self.findings(series("w", 39, BASE), gpu), ["None."])
+        # its rows stay out of the CPU's tables
+        self.assertIn("| w | 2.0.39 | 1000.0 | 1.00% | 1000.0 | 1.00% | 1.000 |", text)
+
+    def test_a_gpu_run_without_kernel_time(self):
+        text = self.summary(series("w", 39, BASE), [gpu_row(1, "w", 39, 2.0)])
+        self.assertIn("| w | 2.0.39 | 2.000 | 0.00% | - | - | - | aaaaaaaaaaaaaaaa | yes |", text)
+
+    def test_a_gpu_output_other_than_the_cpus_is_a_finding(self):
+        gpu = [gpu_row(1, "w", 39, 2.0, 50.0, hash="e" * 16)]
+        self.assertIn("| **no** |", self.gpu_section(self.summary(series("w", 39, BASE), gpu)))
+        self.assertEqual(self.findings(series("w", 39, BASE), gpu),
+                         ["- w: the GPU target's output differs from the CPU's on 2.0.39"])
+
+    def test_gpu_rounds_that_print_two_outputs_are_a_finding(self):
+        gpu = [gpu_row(1, "w", 39, 2.0, 50.0), gpu_row(2, "w", 39, 2.0, 50.0, hash="e" * 16)]
+        f = self.findings(series("w", 39, BASE), gpu)
+        self.assertIn("- w: the GPU target on 2.0.39 printed 2 different outputs across its rounds", f)
+
+    def test_a_gpu_output_that_changes_between_versions_is_a_finding(self):
+        rows = series("w", 39, BASE) + series("w", 38, BASE)
+        gpu = [gpu_row(1, "w", 39, 2.0, 50.0), gpu_row(1, "w", 38, 2.0, 50.0, hash="e" * 16)]
+        f = self.findings(rows, gpu)
+        self.assertIn("- w: the GPU target's output on 2.0.38 differs from 2.0.39's (eeeeeeeeeeeeeeee against "
+                      "aaaaaaaaaaaaaaaa)", f)
+
+    def test_a_failed_gpu_run_is_counted_not_averaged(self):
+        gpu = [gpu_row(1, "w", 39, 2.0, 50.0), gpu_row(2, "w", 39, 9.0, status="exit1")]
+        self.assertIn("| w | 2.0.39 | 2.000 | 0.00% | 50.0 | 0.00% | 100 | aaaaaaaaaaaaaaaa (+1 failed) | yes |",
+                      self.summary(series("w", 39, BASE), gpu))
+        gpu = [gpu_row(1, "w", 39, 9.0, status="exit1")]
+        self.assertIn("| w | 2.0.39 | - | - | - | - | - | failed | - |", self.summary(series("w", 39, BASE), gpu))
 
     def test_a_run_with_no_rounds(self):
         self.assertIn("No one-thread Bend runs in runs.tsv.", self.summary([]))

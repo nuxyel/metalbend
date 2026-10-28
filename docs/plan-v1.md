@@ -88,6 +88,9 @@ rounds, so that run measures the new C targets and the GPU lane at no extra sess
    printing the same hashes; `make check-gpu` (local, since CI has no GPU), and `run.sh` taking a GPU target with the
    kernel time. The kernel times themselves come from the launch-day run.
    Pass: the same hash on the GPU as on the CPU, or the difference recorded and explained.
+   **Done on 2026-10-27** (NOTES.md): gemm-tile8, rmsnorm-step and block-step have GPU targets with the CPU's hashes,
+   `make check-gpu`, and `GPU=1 ./run.sh` with the kernels' time from nsys; block-step's match is the losses-only
+   oracle's (CUDA's float `exp`).
 5. **A count law for the products** (optional, if it fits in a day). The matrix product gives r x m numbers, the way
    `bands_len` does for matvec, on tensor-array's real code. The parallel run over shared arrays stays out until Base
    has a fact that writes to different indexes commute.

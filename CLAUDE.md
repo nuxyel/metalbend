@@ -9,8 +9,8 @@ hardware-counter timings, run on every Bend release. The fourth project after be
 
 - `docs/plan-v0.md`: the current plan, its success and stop criteria.
 - `NOTES.md` (from the first experiment on): every finding and measurement, by date.
-- `workloads/<name>/`: `main.bend`, later `native.c` (same bits), `README.md`. `repros/`: minimal upstream cases.
-  `run.sh`: build and measure. `results/<date>/`: one line per run.
+- `workloads/<name>/`: `main.bend`, later `native.c` (same bits), `gpu.bend` (a GPU target, `make check-gpu`),
+  `README.md`. `repros/`: minimal upstream cases. `run.sh`: build and measure. `results/<date>/`: one line per run.
 - The workloads come from bend-ml, llama.bend and BendTorch (their published packages, pinned in the import lines);
   their `NOTES.md` hold the experiments behind each one.
 

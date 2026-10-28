@@ -9,7 +9,7 @@ Renan Vinícius (@nuxyel).
 
 ## What a workload is
 
-Each workload under `workloads/<name>/` has up to four parts:
+Each workload under `workloads/<name>/` has up to five parts:
 
 - **The oracle.** The program prints a hash of its whole output. A faster build that changes one bit fails the
   oracle; a different hash is a finding, never noise.
@@ -18,25 +18,35 @@ Each workload under `workloads/<name>/` has up to four parts:
 - **The target.** `native.c`, where there is one: a handwritten C version with the same order of operations, so the
   same bits, and the distance from Bend to native code becomes a ratio. The C targets are the yardstick here, not
   library code: my packages stay in Bend, and these files exist to measure how far Bend's output is from C.
+- **The GPU target.** `gpu.bend`, for three workloads: the same program through the GPU lanes of my packages
+  (bend-ml-tensor-gpu's products, BendTorch's GPU layers), built with CUDA. It runs Bend's own device code from the
+  packages' bangs; I wrote no CUDA. Its hash is checked on the GPU and on the CPU threads (`+RTS --gpu off -RTS`).
 - **The laws.** Where Bend can prove it, a spec the fast code meets (`laws/`). There are ten so far, each with its
   limit stated below.
 
 The workloads import my published BendHub packages at pinned versions (`bend-ml-tensor-array@0.1.16.0`,
 `bendtorch@1.1.1.0` and so on), so between two runs only the Bend version changes.
 
-| Workload | What | C target |
-|---|---|---|
-| `gemm-tile8` | tensor-array's matrix product, SmolLM2-135M's three feed-forward shapes | yes |
-| `gemm-fork` | the same products through tensor-fork's parallel blocks | yes (in its blocks) |
-| `matvec-bands` | llama.bend's banded matrix-vector product, SmolLM2-1.7B's shapes | yes |
-| `softmax-ce` | tensor-array's softmax and cross-entropy | yes |
-| `mnist-step` | bend-ml's MNIST training step (784-128-10, batch 100) | yes |
-| `block-step` | BendTorch's SmolLM2-135M block, forward and backward | yes |
-| `attention-step` | the attention half of that block | yes |
-| `rmsnorm-step` | one RMSNorm of that block | yes |
-| `adamw` | BendTorch's AdamW update over 28.3 M weights | yes |
-| `read-native` | a 16 MB weight file read with `File.read_at` | yes |
-| `read-binary` | the same file read with `bend-ml-binary-read` | yes (read-native's) |
+| Workload | What | C target | GPU target |
+|---|---|---|---|
+| `gemm-tile8` | tensor-array's matrix product, SmolLM2-135M's three feed-forward shapes | yes | tensor-gpu 0.1.4.0 |
+| `gemm-fork` | the same products through tensor-fork's parallel blocks | yes (in its blocks) | |
+| `matvec-bands` | llama.bend's banded matrix-vector product, SmolLM2-1.7B's shapes | yes | |
+| `softmax-ce` | tensor-array's softmax and cross-entropy | yes | |
+| `mnist-step` | bend-ml's MNIST training step (784-128-10, batch 100) | yes | |
+| `block-step` | BendTorch's SmolLM2-135M block, forward and backward | yes | bendtorch-gpu 1.1.1.0 |
+| `attention-step` | the attention half of that block | yes | |
+| `rmsnorm-step` | one RMSNorm of that block | yes | bendtorch-gpu 1.1.1.0 |
+| `adamw` | BendTorch's AdamW update over 28.3 M weights | yes | |
+| `read-native` | a 16 MB weight file read with `File.read_at` | yes | |
+| `read-binary` | the same file read with `bend-ml-binary-read` | yes (read-native's) | |
+
+The three GPU targets print the CPU's hashes on my RTX 4050, so `oracles.tsv`'s `<name>:gpu` lines repeat them. For
+the products and the RMSNorm that is by design: tensor-gpu keeps tensor-array's order of additions, BendTorch's GPU
+layers compute each number with the CPU layer's own expression, and Bend builds the device code without fused
+multiply-add. For `block-step` the match is weaker than it looks: on the device SiLU and attention's
+softmax take CUDA's float `exp`, which rounds the last bit of some inputs differently from the host's (BendTorch's own
+GPU tests show it), and a difference that small passes unseen by an oracle that hashes only the two losses.
 
 `repros/` has the minimal cases cut from the workloads, the kind of program an upstream issue can carry.
 
@@ -48,6 +58,7 @@ Needs Linux with `perf` and `taskset`, clang, Python 3, and the Bend versions to
 ./run.sh                                     # every workload, Bend 2.0.35-2.0.39, 5 rounds, into results/<today>/
 ROUNDS=3 VERSIONS="38 39" WORKLOADS="softmax-ce" THREADS="1 16" ./run.sh
 BEND_39=~/.bend/bin/bend VERSIONS=39 ./run.sh  # point a version at a binary installed elsewhere
+GPU=1 VERSIONS=39 ./run.sh                   # the GPU targets too, into gpu.tsv (needs CUDA and an NVIDIA GPU)
 ./release.sh 2.0.40                          # a new release against the one before it
 ```
 
@@ -55,6 +66,12 @@ BEND_39=~/.bend/bin/bend VERSIONS=39 ./run.sh  # point a version at a binary ins
   It writes one line per run to `runs.tsv`, the machine's state to `env.tsv`, and a `summary.md` (from `analyze.py`)
   that marks what moved beyond noise (more than 3x the larger spread between rounds) and any output that differs.
 - A run checks that each version really ran the thread count it was asked for.
+- `GPU=1` adds the GPU targets, built with CUDA by each version and run in the same rounds. Each one is timed twice
+  per round: the whole run by the wall clock, then the time its kernels took on the device, from `nsys profile
+  --trace=cuda` (`NSYS=0` skips that run). They go to `gpu.tsv`, never `runs.tsv`, and `summary.md` gets a table of
+  them. The toolkit is the first of `CUDA_HOME`, `~/.local/cuda12`, `CUDA_PATH`, `/usr/local/cuda` and `/opt/cuda` with
+  `nvrtc.h`; a build that does not link libnvrtc (a CPU-only build) counts as a failure. `GPU=1 ./release.sh` passes
+  it on.
 - `release.sh <version>` builds that release and the one before it from their tags (in a clone of bendlang/bend under
   `build/`, or `$BEND_SRC`), runs the corpus on both at 1 and 16 threads, and prints what changed. On 2.0.39 it took
   2m13s and found that release's change by itself. It needs `bun` too, and stops if the tag is not upstream yet.
@@ -78,13 +95,15 @@ rounds to a few hundred in billions; cycles move by a few percent.
 ```sh
 make setup     # Bend 2.0.39 (checked by SHA256), then clang and Python 3 checked
 make check     # every workload on 1 and 16 threads and every C target, against oracles.tsv
-make test      # analyze.py, scripts/chart.py, oracle_diff.py, run.sh's guard, release.sh on a fake upstream
+make check-gpu # every GPU target on the GPU and with --gpu off on 1 and 16 threads; skips if there is no GPU
+make test      # analyze.py, scripts/chart.py, oracle_diff.py, run.sh's guard, the GPU lane's skip, release.sh on a fake upstream
 make laws      # the ten laws (with --verdict) and their 22 mutants, each refused
 make mutate    # break the corpus and the tools on purpose; every mutant must be caught
 ```
 
 `oracles.tsv` holds each workload's hash, as `run.sh` records it, from a run where every version and every C target
-printed it. CI runs all four on every push, bits only (GitHub's runners cannot count with `perf`). `make mutate` has 52
+printed it. CI runs all but `make check-gpu` on every push, bits only (GitHub's runners cannot count with `perf`, and
+have no GPU). `make check-gpu` is local: with no toolkit or no GPU it says why and passes. `make mutate` has 52
 mutants: 46 caught, and 6 that survive with their reason written next to them. One of the six is a limit of the
 oracle: `block-step` prints only each step's loss, so one rounding changed in SiLU moves nothing the hash sees.
 
@@ -136,7 +155,9 @@ must refuse. `laws/README.md` explains each in plain language.
 A new `workloads/<name>/main.bend` that imports its packages at pinned versions, builds its inputs with `lib/mb.bend`'s
 deterministic values, and prints `lib/mb.bend`'s hash of its whole output. A C target goes next to it as `native.c`,
 with `lib/mb.h`'s inputs and hash, and must print the same hash. Its hash goes in `oracles.tsv`, and `make check` must
-pass. `run.sh` and `make check` pick up every folder under `workloads/`.
+pass. `run.sh` and `make check` pick up every folder under `workloads/`. A GPU target goes next to it as `gpu.bend`,
+importing the GPU lane of the same packages, with a `<name>:gpu` line in `oracles.tsv` (its hash on the device), and
+`make check-gpu` must pass.
 
 ## License
 

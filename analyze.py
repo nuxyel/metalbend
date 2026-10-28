@@ -9,7 +9,9 @@ with at least 3 rounds on both sides. Outputs: every run of a workload must prin
 (the same hash) at every version; a differing hash is listed, never averaged away. The C targets (bend "c") are
 compared with the newest version: the ratio of their medians, and whether they print the same bytes. Runs on more
 threads (column `threads`) get their own table: wall-time speedup over one thread, and whether every thread count
-prints the same bytes.
+prints the same bytes. The GPU targets (gpu.tsv, from GPU=1 ./run.sh) get a table of their own: the medians of the wall
+time and of the kernels' time on the device, and whether each prints the same bytes in every round, as the same
+version's one-thread CPU run, and as the newest version's GPU run.
 """
 import csv
 import statistics
@@ -21,6 +23,54 @@ from pathlib import Path
 def spread(xs):
     m = statistics.median(xs)
     return (max(xs) - min(xs)) / m if m else 0.0
+
+
+def gpu_table(path, cell, findings):
+    """The GPU targets' rows (gpu.tsv); cell holds the one-thread CPU runs, for their outputs."""
+    with open(path) as f:
+        rows = list(csv.DictReader(f, delimiter="\t"))
+    g = defaultdict(lambda: {"sec": [], "kms": [], "nk": [], "hash": set(), "bad": 0})
+    for r in rows:
+        c = g[(r["workload"], int(r["bend"]))]
+        if r["status"] != "ok":
+            c["bad"] += 1
+            continue
+        c["sec"].append(float(r["seconds"]))
+        if r["kernel_ms"]:
+            c["kms"].append(float(r["kernel_ms"]))
+            c["nk"].append(int(r["kernels"]))
+        c["hash"].add(r["hash"])
+    lines = ["", "## GPU targets (medians: the whole run's wall time, and its kernels' time on the device from nsys)", "",
+             "| workload | bend | s | spread | kernel ms | spread | kernels | hash | same output as the CPU |",
+             "|---|---|---:|---:|---:|---:|---:|---|---|"]
+    if not g:
+        return lines + ["", "No GPU runs in gpu.tsv."]
+    base = max(v for _, v in g)
+    for w, v in sorted(g):
+        c = g[(w, v)]
+        if not c["sec"]:
+            lines.append(f"| {w} | 2.0.{v} | - | - | - | - | - | failed | - |")
+            continue
+        hs = ", ".join(sorted(c["hash"]))
+        if len(c["hash"]) > 1:
+            findings.append(f"- {w}: the GPU target on 2.0.{v} printed {len(c['hash'])} different outputs across its rounds")
+        b = g.get((w, base))
+        if v != base and b and b["hash"] and c["hash"] != b["hash"]:
+            findings.append(f"- {w}: the GPU target's output on 2.0.{v} differs from 2.0.{base}'s ({hs} against "
+                            f"{', '.join(sorted(b['hash']))})")
+        cpu = cell.get((w, v))
+        if not cpu or not cpu["hash"]:
+            same = "-"
+        elif cpu["hash"] == c["hash"] and len(c["hash"]) == 1:
+            same = "yes"
+        else:
+            same = "**no**"
+            findings.append(f"- {w}: the GPU target's output differs from the CPU's on 2.0.{v}")
+        kms = (f"{statistics.median(c['kms']):.1f} | {spread(c['kms']) * 100:.2f}% | {statistics.median(c['nk']):.0f}"
+               if c["kms"] else "- | - | -")
+        lines.append(f"| {w} | 2.0.{v} | {statistics.median(c['sec']):.3f} | {spread(c['sec']) * 100:.2f}% | {kms} | "
+                     f"{hs}{' (+' + str(c['bad']) + ' failed)' if c['bad'] else ''} | {same} |")
+    return lines
 
 
 def main(out):
@@ -127,6 +177,9 @@ def main(out):
                 if not same:
                     findings.append(f"- {w}: 2.0.{v} prints different outputs across thread counts")
                 lines.append(f"| {w} | 2.0.{v} | {m1:.3f} | " + " | ".join(cols) + f" | {'yes' if same else '**no**'} |")
+    gpu = out / "gpu.tsv"
+    if gpu.exists():
+        lines += gpu_table(gpu, cell, findings)
     lines += ["", "## Beyond noise or differing outputs", ""] + (findings or ["None."])
     (out / "summary.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))

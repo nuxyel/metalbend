@@ -4,7 +4,7 @@ export BEND_NO_TELEMETRY := 1
 export PATH := $(HOME)/.bend/bin:$(HOME)/.elan/bin:$(PATH)
 PY := python3 -I
 
-.PHONY: setup data check test laws mutate
+.PHONY: setup data check check-gpu test laws mutate
 
 setup:            ## install the pinned Bend (2.0.39) and Lean (4.34.0) if missing; check clang and Python 3
 	scripts/setup.sh
@@ -15,7 +15,10 @@ data:             ## data/dense.bin, the dense-read workloads' input (determinis
 check:            ## build every workload (1 and 16 threads) and every native.c, fail on a hash that is not its oracle
 	scripts/check_oracles.sh
 
-test:             ## analyze.py, chart.py, oracle_diff.py and run.sh's guard on synthetic runs; release.sh on a fake upstream (needs bun)
+check-gpu:        ## local, CI has no GPU: every gpu.bend built with CUDA, on the GPU and with --gpu off (1, 16 threads); skips with no GPU
+	TARGETS=gpu scripts/check_oracles.sh
+
+test:             ## analyze.py, chart.py, oracle_diff.py, run.sh's guard and the GPU lane's skip on synthetic runs; release.sh on a fake upstream (needs bun)
 	$(PY) -m unittest discover -s tests -v
 
 laws:             ## the ten laws of laws/ check (with --verdict) and each of their 22 mutants is refused

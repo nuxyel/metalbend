@@ -2,6 +2,7 @@
 # Builds every workload with every Bend version (and its C target, if it has one), then measures them in rounds:
 #   ./run.sh                    # 5 rounds into results/<today>/
 #   ROUNDS=7 VERSIONS="38 39" WORKLOADS="gemm-tile8" THREADS="1 16" ./run.sh
+#   GPU=1 ./run.sh              # the GPU targets too (workloads/<name>/gpu.bend, built with CUDA), into gpu.tsv
 # A one-thread run is pinned to CPU 3 (a P-core) and counted by `perf stat` (instructions and cycles of the P-core PMU
 # in user mode; the kernel's share, mostly page faults and transparent huge pages, varies between runs by ~1% of
 # instructions and is recorded apart). A run on more threads is unpinned and measured by its wall time (its
@@ -9,16 +10,27 @@
 # +RTS and -RTS in 2.0.38. Every round runs every (workload, version, threads) case once, in a fresh order from a
 # seeded shuffle; the C targets run on one thread. One line per run in runs.tsv; the output's hash is the oracle, compared by
 # analyze.py, which also writes summary.md.
+# GPU=1 adds each workload's GPU target, built with every version, run in the same rounds with the runtime's default
+# options: its wall time, and (unless NSYS=0, or with no nsys) the time its kernels took on the device, from a second
+# run under `nsys profile --trace=cuda` (its cuda_gpu_kern_sum report). One line per run in gpu.tsv, never in runs.tsv.
 set -euo pipefail
 cd "$(dirname "$0")"
 ROUNDS=${ROUNDS:-5}
 VERSIONS=${VERSIONS:-"35 36 37 38 39"}
 WORKLOADS=${WORKLOADS:-$(ls workloads)}
 THREADS=${THREADS:-1}
+GPU=${GPU:-0}
 OUT=${OUT:-results/$(date +%F)}
 mkdir -p "$OUT" build
 # the dense-read workloads' input, made once
 [ -f data/dense.bin ] || python3 -I lib/gen_dense.py
+# the GPU lane, asked for: a toolkit and a device, or stop (scripts/cuda.sh)
+if [ "$GPU" = 1 ]; then
+  . scripts/cuda.sh
+  why=$(gpu_missing)
+  [ -z "$why" ] || { echo "GPU=1, but $why; stopping" >&2; exit 2; }
+  if [ "${NSYS:-1}" = 1 ] && command -v nsys > /dev/null; then NSYS=1; else NSYS=0; fi
+fi
 
 # a version is its last number; release.sh puts source builds of new ones at build/bin/<n>, and BEND_<n> names an
 # installed binary (BEND_39=~/.bend/bin/bend); the paths below are where my machine keeps them
@@ -50,6 +62,11 @@ rts() { if [ "$1" = c ]; then return; elif [ "$1" -ge 38 ]; then echo "+RTS --th
   echo -e "loadavg_start\t$(cut -d' ' -f1-3 /proc/loadavg)"
   echo -e "metalbend\t$(git rev-parse --short HEAD)$(git diff --quiet || echo -dirty)"
   for v in $VERSIONS; do echo -e "bend_$v\t$($(bend_of "$v") version)"; done
+  if [ "$GPU" = 1 ]; then
+    echo -e "gpu\t$(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader | head -1)"
+    echo -e "cuda_home\t$CUDA_HOME ($(ls "$CUDA_LIB"/libnvrtc.so.* 2>/dev/null | sed 's|.*/||' | sort | tail -1))"
+    echo -e "nsys\t$([ "$NSYS" = 1 ] && nsys --version | head -1 || echo none)"
+  fi
 } > "$OUT/env.tsv"
 
 # ---- builds: one binary per (workload, version); a failure is recorded, not fixed ----
@@ -77,6 +94,23 @@ for w in $WORKLOADS; do
   if clang -std=c11 -O3 "workloads/$w/native.c" -o "build/c/$w" -lm > "build/c/$w.log" 2>&1; then st=ok; else st=fail; fi
   echo -e "$w\tc\t$st\t0" | tee -a "$OUT/builds.tsv"
 done
+
+# ---- the GPU targets: gpu.bend next to a main.bend, built with CUDA by each version (a CPU-only build is a failure) ----
+if [ "$GPU" = 1 ]; then
+  for w in $WORKLOADS; do
+    [ -f "workloads/$w/gpu.bend" ] || continue
+    for v in $VERSIONS; do
+      bin=build/gpu-$v/$w
+      mkdir -p "build/gpu-$v"
+      if [ -x "$bin" ] && [ "${REBUILD:-0}" = 0 ]; then continue; fi
+      t0=$(date +%s.%N)
+      if gpu_build "$w" "$(bend_of "$v")" "$PWD/$bin" > "build/gpu-$v/$w.log" 2>&1; then st=ok; else st=fail; rm -f "$bin"; fi
+      t1=$(date +%s.%N)
+      echo -e "$w\tgpu-$v\t$st\t$(awk "BEGIN{printf \"%.2f\", $t1 - $t0}")" | tee -a "$OUT/builds.tsv"
+    done
+  done
+  [ -f "$OUT/gpu.tsv" ] || echo -e "round\tworkload\tbend\tseconds\tkernel_ms\tkernels\thash\tstatus\tloadavg" > "$OUT/gpu.tsv"
+fi
 
 # ---- guard: the thread option is honored (a bare option on 2.0.38+ would run on every core, silently): the peak
 # count of the process's threads is 1 for one thread, and t to t + 2 for t (the runtime may add a helper) ----
@@ -107,6 +141,7 @@ pairs=()
 for w in $WORKLOADS; do
   for v in $VERSIONS; do for t in $THREADS; do [ -x "build/$v/$w" ] && pairs+=("$w:$v:$t"); done; done
   [ -x "build/c/$w" ] && pairs+=("$w:c:1")
+  if [ "$GPU" = 1 ]; then for v in $VERSIONS; do [ -x "build/gpu-$v/$w" ] && pairs+=("$w:$v:gpu"); done; fi
 done
 # nothing built: no rounds (an empty pairs would still feed one empty case to the shuffle)
 [ "${#pairs[@]}" -gt 0 ] || ROUNDS=0
@@ -115,6 +150,22 @@ for r in $(seq 1 "$ROUNDS"); do
   for p in "${order[@]}"; do
     IFS=: read -r w v t <<< "$p"
     la=$(cut -d' ' -f1 /proc/loadavg)
+    if [ "$t" = gpu ]; then
+      bin=build/gpu-$v/$w
+      t0=$(date +%s.%N)
+      if "$bin" > "$OUT/.out" 2> "$OUT/.err"; then st=ok; else st="exit$?"; fi
+      t1=$(date +%s.%N)
+      h=$(sha256sum < "$OUT/.out" | cut -c1-16)
+      kms="" nk=""
+      if [ "$NSYS" = 1 ] && nsys profile --trace=cuda --output "$OUT/.nsys" --force-overwrite true "$bin" > /dev/null 2>&1; then
+        read -r kms nk < <(nsys stats -q --report cuda_gpu_kern_sum --format csv --output - --force-export true "$OUT/.nsys.nsys-rep" 2>/dev/null |
+          awk -F, 'go {ns += $2; n += $3} /^Time \(%\)/ {go = 1} END {if (go) printf "%.3f %d\n", ns / 1e6, n}') || true
+      fi
+      rm -f "$OUT/.nsys.nsys-rep" "$OUT/.nsys.sqlite"
+      echo -e "$r\t$w\t$v\t$(awk "BEGIN{printf \"%.4f\", $t1 - $t0}")\t$kms\t$nk\t$h\t$st\t$la" | tee -a "$OUT/gpu.tsv"
+      [ -f "$OUT/out-$w-$v-gpu.txt" ] || cp "$OUT/.out" "$OUT/out-$w-$v-gpu.txt"
+      continue
+    fi
     if [ "$t" = 1 ]; then pin="taskset -c 3"; ev=cpu_core/instructions/u,cpu_core/cycles/u,cpu_core/instructions/k,cpu_core/cycles/k
     else pin=""; ev=cpu_core/instructions/u,cpu_atom/instructions/u,cpu_core/cycles/u,cpu_core/instructions/k,cpu_core/cycles/k; fi
     t0=$(date +%s.%N)

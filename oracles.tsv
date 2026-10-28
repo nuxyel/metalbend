@@ -2,11 +2,14 @@ workload	hash
 adamw	b80a7888e4fc8673
 attention-step	02e1fbcd81ca2848
 block-step	4afdd96850039587
+block-step:gpu	4afdd96850039587
 gemm-fork	0c6d7fee9a7ddf37
 gemm-tile8	0c6d7fee9a7ddf37
+gemm-tile8:gpu	0c6d7fee9a7ddf37
 matvec-bands	ff8b18c16b517923
 mnist-step	2d83be930d21fb9f
 read-binary	9b44f947a6f6c6b9
 read-native	9b44f947a6f6c6b9
 rmsnorm-step	50b8958aa3a54a76
+rmsnorm-step:gpu	50b8958aa3a54a76
 softmax-ce	debeda8b7bc50c1f

@@ -207,3 +207,26 @@ count repeated to within 0.0001% between rounds (cycles moved by up to 15%).
   2.0.39, which are those releases, so its numbers stand; but release.sh's line that a source build counts the same
   instructions as the release was never measured by it, and is dropped until an idle run measures it.
 - Left: run.sh names a version by its last number, so a 2.1.0 would be "0" and get the pre-2.0.38 thread option.
+
+## 2026-10-27: toward v1.0.0, step 4, a GPU lane
+
+- Three GPU targets, each a `gpu.bend` next to its workload's `main.bend`: `gemm-tile8` through bend-ml-tensor-gpu
+  0.1.4.0 (`lib/gemm_gpu.bend`; 0.1.4.0 rather than 0.1.5.0 because it keeps gemm-tile8's tensor-array 0.1.16.0, and
+  0.1.5.0 adds only the random fills), and `rmsnorm-step` and `block-step` with bendtorch-gpu 1.1.1.0 in place of
+  bendtorch-fast 1.1.1.0, the import line alone changed, as BendTorch builds its GPU demos. `attention-step` is left
+  out: `block-step` contains it. No CUDA of mine; the device code is what Bend makes of the packages' bangs.
+- The same hashes on the RTX 4050 as on the CPU: gemm-tile8 `0c6d7fee9a7ddf37`, rmsnorm-step `50b8958aa3a54a76`,
+  block-step `4afdd96850039587`, with nvrtc 12.9 and 13.4 alike, and with `+RTS --gpu off -RTS` on 1 and 16 threads.
+  The products and the RMSNorm match by construction (tensor-array's order of additions, the CPU layers' expressions,
+  no fused multiply-add on the device). block-step matches only because its oracle hashes the two losses: SiLU and the
+  softmax take CUDA's float `exp` on the device, whose last bit differs from the host's on some inputs. Once the
+  whole-block workloads hash their weights (step 1), block-step's `:gpu` oracle is expected to part from the CPU's, and
+  its line in `oracles.tsv` then holds the device's hash, recorded as such.
+- The GPU oracle is its own line, `<name>:gpu` in `oracles.tsv`; `make check-gpu` (local) builds each `gpu.bend` with
+  CUDA, refuses a binary that does not link libnvrtc, and checks it on the device against `<name>:gpu` and with
+  `--gpu off` against `<name>`: 9 runs, every hash its oracle. With no toolkit or no GPU it says why and passes (a test
+  fakes a driver that sees no GPU); `make check` does not touch the GPU targets.
+- `GPU=1 ./run.sh` builds the GPU targets with each version and runs them in the same rounds: the wall time of a plain
+  run, then the kernels' time on the device from `nsys profile --trace=cuda`, into `gpu.tsv`; `analyze.py` adds a
+  table and flags a GPU output that differs from the CPU's, between rounds or between versions. A one-round smoke run
+  on a busy machine worked end to end; its times are not results, and the kernel times wait for the launch-day run.
