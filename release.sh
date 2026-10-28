@@ -3,10 +3,13 @@
 #   ./release.sh 2.0.40            # against 2.0.39
 #   ./release.sh 2.0.40 2.0.38     # against another one
 #   ./release.sh --previous 2.0.40 # only print the release it would compare against
+#   ROUNDS=1 OUT=build/rehearsal ./release.sh 2.0.39   # a rehearsal: bits only, its timings thrown away
 # Builds each release from its tag in a clone of bendlang/bend ($BEND_SRC, build/bend by default, cloned if missing;
 # fetched first) with bun, the way the released binary is built from the same source, behind a wrapper at build/bin/<n>; then
-# runs the corpus on both at 1 and 16 threads (ROUNDS, 5 by default) into results/<date>-<new>/ and prints what moved
-# beyond noise and any output that changed. A source build of 2.0.39 counts the same instructions as the release.
+# runs the corpus on both at 1 and 16 threads (ROUNDS, 5 by default) into results/<date>-<new>/ ($OUT) and prints what
+# moved beyond noise, any output that changed, and every case whose hash is not its oracle in oracles.tsv
+# (scripts/oracle_diff.py; release.sh then exits 1). Whether a source build counts the same instructions as the
+# released binary is not measured yet (NOTES.md, 2026-10-27).
 set -euo pipefail
 cd "$(dirname "$0")"
 previous_only=0
@@ -47,8 +50,10 @@ for v in "$old" "$new"; do
 done
 # a fresh build of every workload with both, so no binary from another build of the same number is reused
 for v in "$old" "$new"; do rm -rf "build/${v##*.}"; done
-OUT=${OUT:-results/$(date +%F)-$new} VERSIONS="${old##*.} ${new##*.}" THREADS=${THREADS:-"1 16"} ./run.sh > /dev/null
 out=${OUT:-results/$(date +%F)-$new}
+OUT=$out VERSIONS="${old##*.} ${new##*.}" THREADS=${THREADS:-"1 16"} ./run.sh > /dev/null
 echo "== $out/summary.md"
 sed -n '/## Beyond noise or differing outputs/,$p' "$out/summary.md"
 [ "${ROUNDS:-5}" -ge 3 ] || echo "(fewer than 3 rounds: nothing is marked beyond noise; the tables are in $out/summary.md)"
+echo "== against oracles.tsv"
+python3 -I scripts/oracle_diff.py "$out"
