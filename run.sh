@@ -108,6 +108,8 @@ for w in $WORKLOADS; do
   for v in $VERSIONS; do for t in $THREADS; do [ -x "build/$v/$w" ] && pairs+=("$w:$v:$t"); done; done
   [ -x "build/c/$w" ] && pairs+=("$w:c:1")
 done
+# nothing built: no rounds (an empty pairs would still feed one empty case to the shuffle)
+[ "${#pairs[@]}" -gt 0 ] || ROUNDS=0
 for r in $(seq 1 "$ROUNDS"); do
   mapfile -t order < <(printf '%s\n' "${pairs[@]}" | python3 -I -c "import random,sys; l=sys.stdin.read().split(); random.Random($r).shuffle(l); print('\n'.join(l))")
   for p in "${order[@]}"; do
