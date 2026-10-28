@@ -59,8 +59,11 @@ for w in $WORKLOADS; do
     bin=build/$v/$w
     mkdir -p "build/$v"
     if [ -x "$bin" ] && [ "${REBUILD:-0}" = 0 ]; then continue; fi
+    # resolved here, not inside the subshell: after its cd, bend_of would miss build/bin/<n> and fall back to an
+    # installed release (or none, for a version newer than the installed ones)
+    bend=$(bend_of "$v")
     t0=$(date +%s.%N)
-    if (cd "workloads/$w" && "$(bend_of "$v")" main.bend -o "../../$bin") > "build/$v/$w.log" 2>&1; then st=ok; else st=fail; rm -f "$bin"; fi
+    if (cd "workloads/$w" && "$bend" main.bend -o "../../$bin") > "build/$v/$w.log" 2>&1; then st=ok; else st=fail; rm -f "$bin"; fi
     t1=$(date +%s.%N)
     echo -e "$w\t$v\t$st\t$(awk "BEGIN{printf \"%.2f\", $t1 - $t0}")" | tee -a "$OUT/builds.tsv"
   done
