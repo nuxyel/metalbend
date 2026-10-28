@@ -103,9 +103,10 @@ make mutate    # break the corpus and the tools on purpose; every mutant must be
 
 `oracles.tsv` holds each workload's hash, as `run.sh` records it, from a run where every version and every C target
 printed it. CI runs all but `make check-gpu` on every push, bits only (GitHub's runners cannot count with `perf`, and
-have no GPU). `make check-gpu` is local: with no toolkit or no GPU it says why and passes. `make mutate` has 52
-mutants: 46 caught, and 6 that survive with their reason written next to them. One of the six is a limit of the
-oracle: `block-step` prints only each step's loss, so one rounding changed in SiLU moves nothing the hash sees.
+have no GPU). `make check-gpu` is local: with no toolkit or no GPU it says why and passes. `make mutate` has 56
+mutants: 51 caught, and 5 that survive with their reason written next to them (four compute the same bits, one changes
+what no run reaches). The three block workloads print a hash of their final weights and AdamW moments after the
+losses, so one rounding changed inside a layer (SiLU's, say) is caught even when every loss keeps its bits.
 
 ## What it has found
 

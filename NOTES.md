@@ -230,3 +230,20 @@ count repeated to within 0.0001% between rounds (cycles moved by up to 15%).
   run, then the kernels' time on the device from `nsys profile --trace=cuda`, into `gpu.tsv`; `analyze.py` adds a
   table and flags a GPU output that differs from the CPU's, between rounds or between versions. A one-round smoke run
   on a busy machine worked end to end; its times are not results, and the kernel times wait for the launch-day run.
+
+## 2026-10-27: plan v1 step 1, the block workloads hash their final state
+
+- `block-step`, `attention-step` and `rmsnorm-step` now print, after the losses, one hash of the final weights and
+  both AdamW moments: `Layer.store` copies each into one array (weights, then m, then v, in the layers' dump order)
+  and `lib/mb.bend`'s hash reads it. The gradient is left out, since the step zeroes it and the moments hold it. The C
+  targets fold the same cells in the same order (`mb_fnv` in `lib/mb.h`, `bt_show_state` in `lib/bt.h`). The losses
+  keep their bits.
+- Oracles: attention-step `02e1fbcd81ca2848` -> `bb7f7e1c79c25bb7`, block-step `4afdd96850039587` ->
+  `400cae69095e09cf`, rmsnorm-step `50b8958aa3a54a76` -> `37901ab4cff27378`, the same on Bend 2.0.35-2.0.39 at 1 and
+  16 threads and on each C target (one bits-only round on a busy machine; no timings).
+- The hash runs once, at the end: on 2.0.39 it adds about 0.8% of block-step's user instructions (3.5 M weights, so
+  10.6 M numbers copied and hashed), 0.4% of attention-step's and nothing visible in rmsnorm-step's.
+- `make mutate`: the three SiLU rounding mutants (x times the reciprocal, `expf`, plus 1e-7) are caught now, and two
+  new mutants of the hash itself (the second moments left out, in C and in Bend) are caught. 56 mutants, 51 caught,
+  5 expected to survive (four equivalent, one no run reaches). Result: the whole-block oracle sees one rounding
+  inside a layer.

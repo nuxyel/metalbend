@@ -71,6 +71,8 @@ rounds, so that run measures the new C targets and the GPU lane at no extra sess
    version (bits only).
    Pass: the SiLU rounding mutants move from expected survivors to caught; the old and new hashes are both recorded in
    NOTES.
+   **Done 2026-10-27** (NOTES): the three hash their final weights and AdamW moments, the three SiLU rounding mutants
+   are caught, and `oracles.tsv` holds the new hashes from 2.0.35-2.0.39 and the C targets.
 2. **Rehearse launch day, bits only.** `ROUNDS=1 ./release.sh 2.0.39` end to end (build from the tags, run, analyze),
    so a change upstream in how Bend builds (bun, the tag layout) shows up now and not on the day. Its timings are thrown
    away; only the hashes are checked against `oracles.tsv`.

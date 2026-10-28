@@ -1,8 +1,9 @@
 // block-step's target: BendTorch's SmolLM2-135M decoder block (Residual(RMSNorm, attention), then Residual(RMSNorm,
 // SwiGLU)), 512 rows, trained with AdamW under MSE for 2 steps on the same weights, inputs and targets, in BendTorch's
-// order of operations (lib/bt.h); each loss's bits printed as T.F32.print prints them. A Residual adds x + f(x) and its
-// input gradient as dy + dx_f; a Fork's input gradients are summed as dx_first + dx_second; the SwiGLU product is
-// silu(gate) * up. Bend's flags: clang -std=c11 -O3.
+// order of operations (lib/bt.h); each loss's bits printed as T.F32.print prints them, then the hash of the final
+// weights and moments (bt_show_state). A Residual adds x + f(x) and its input gradient as dy + dx_f; a Fork's input
+// gradients are summed as dx_first + dx_second; the SwiGLU product is silu(gate) * up. Bend's flags:
+// clang -std=c11 -O3.
 #include "../../lib/bt.h"
 
 enum { N = 512, D = 576, KVW = 192, FF = 1536, STEPS = 2 };
@@ -28,6 +29,7 @@ int main(void) {
   float *u = mb_zeros(N * FF), *z = mb_zeros(N * FF), *y = mb_zeros(N * D), *dz = mb_zeros(N * FF);
   float *ds = mb_zeros(N * FF), *du = mb_zeros(N * FF), *dxg = mb_zeros(N * D), *dxu = mb_zeros(N * D);
   float *dx2 = mb_zeros(N * D), *dy1 = mb_zeros(N * D), *sq = mb_zeros(N * D), *dg = mb_zeros(D);
+  bt_param *ps[] = {&g1, &wq, &wk, &wv, &wo, &g2, &wg, &wu, &wd};
   bt_train tr = {0.0f, 0.0f};
   for (uint32_t s = 0; s < STEPS; s++) {
     bt_gen(x, N * D, 1000 + s, BT_X_SCALE);
@@ -75,10 +77,10 @@ int main(void) {
     bt_add(N * D, dy1, dx1);
     // the step
     bt_opt op = bt_opt_next(&tr);
-    bt_param *ps[] = {&g1, &wq, &wk, &wv, &wo, &g2, &wg, &wu, &wd};
     for (int i = 0; i < 9; i++) bt_adam(&op, ps[i]->n, ps[i]->w, ps[i]->g, ps[i]->m, ps[i]->v);
     printf("loss %u\n", f2u(l));
   }
+  bt_show_state(ps, 9);
   printf("done\n");
   return 0;
 }

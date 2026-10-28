@@ -1,7 +1,7 @@
 // rmsnorm-step's target: one RMSNorm (512 rows of 576, eps 1e-5, its gain from ones) trained with AdamW under MSE for
 // 200 steps on the same inputs and targets, in BendTorch's order of operations (lib/bt.h): forward, the loss, backward
-// (dx is computed and dropped, as the layer computes it), the step; each loss's bits printed as T.F32.print prints them.
-// Bend's flags: clang -std=c11 -O3.
+// (dx is computed and dropped, as the layer computes it), the step; each loss's bits printed as T.F32.print prints
+// them, then the hash of the final weights and moments (bt_show_state). Bend's flags: clang -std=c11 -O3.
 #include "../../lib/bt.h"
 
 enum { N = 512, D = 576, STEPS = 200 };
@@ -22,6 +22,8 @@ int main(void) {
     bt_adam(&o, D, gain.w, gain.g, gain.m, gain.v);
     printf("loss %u\n", f2u(l));
   }
+  bt_param *ps[] = {&gain};
+  bt_show_state(ps, 1);
   printf("done\n");
   return 0;
 }

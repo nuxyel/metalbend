@@ -55,6 +55,17 @@ static bt_param bt_param_new(size_t n) {
   return (bt_param){n, mb_zeros(n), mb_zeros(n), mb_zeros(n), mb_zeros(n)};
 }
 
+// the final state as the Bend workloads print it: one FNV-1a over the weights of the k matrices in Layer.store's
+// order, then their first moments, then their second moments (lib/mb.bend's hash of that one array); the gradients
+// are zero after a step
+static void bt_show_state(bt_param *const *ps, int k) {
+  uint32_t h = MB_FNV_START;
+  for (int i = 0; i < k; i++) h = mb_fnv(h, ps[i]->w, ps[i]->n);
+  for (int i = 0; i < k; i++) h = mb_fnv(h, ps[i]->m, ps[i]->n);
+  for (int i = 0; i < k; i++) h = mb_fnv(h, ps[i]->v, ps[i]->n);
+  printf("%u\n", h);
+}
+
 // ---- tree_sum: a[i] = a[2i] + a[2i + 1], an odd last one carried, until one number is left (destroys a) ----
 
 static float bt_tree_sum(float *a, uint32_t m) {

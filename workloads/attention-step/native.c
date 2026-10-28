@@ -1,7 +1,8 @@
 // attention-step's target: the block's attention half (RMSNorm, the q/k/v projections, RoPE, grouped-query causal
 // attention, the output projection) at SmolLM2-135M's sizes, 512 rows, trained with AdamW under MSE for 4 steps on the
 // same weights, inputs and targets, in BendTorch's order of operations (lib/bt.h); each loss's bits printed as
-// T.F32.print prints them. A Fork's input gradients are summed as dx_q + (dx_k + dx_v). Bend's flags: clang -std=c11 -O3.
+// T.F32.print prints them, then the hash of the final weights and moments (bt_show_state). A Fork's input gradients
+// are summed as dx_q + (dx_k + dx_v). Bend's flags: clang -std=c11 -O3.
 #include "../../lib/bt.h"
 
 enum { N = 512, D = 576, KVW = 192, STEPS = 4 };
@@ -54,6 +55,8 @@ int main(void) {
     bt_adam(&op, D * D, wo.w, wo.g, wo.m, wo.v);
     printf("loss %u\n", f2u(l));
   }
+  bt_param *ps[] = {&gain, &wq, &wk, &wv, &wo};
+  bt_show_state(ps, 5);
   printf("done\n");
   return 0;
 }
