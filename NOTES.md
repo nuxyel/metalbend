@@ -124,3 +124,28 @@ private lab.
   version, so it waits for the next run of all of them.
 - `make mutate`: 52 mutants, 46 caught, 6 expected to survive.
 
+
+## 2026-10-27: plan v1 step 2, launch day rehearsed (bits only)
+
+- `ROUNDS=1 OUT=build/rehearsal ./release.sh 2.0.39` (a fresh clone of bendlang/bend, 2.0.38 and 2.0.39 built from
+  their tags with bun 1.4.2) ran to the end, and every hash of its 55 cases (eleven workloads on both versions at 1
+  and 16 threads, eleven C targets) was its oracle. Nothing upstream had changed how Bend builds. Its timings are
+  thrown away: the machine was busy.
+- But the run had not used the source builds. run.sh resolved the compiler inside the build's subshell, after its
+  `cd` into the workload, so `build/bin/<n>` was never found and the installed 2.0.38 and 2.0.39 built every
+  workload (env.tsv still named the wrappers, resolved outside it). On 2.0.40, which is not installed, every build
+  would have failed, and then run.sh would have fed one empty case to the rounds and analyze.py would have stopped on
+  it. Both fixed in run.sh. Run again with `BEND_38=/bin/false BEND_39=/bin/false`, so only the source builds could
+  build: 22 builds ok, 55 hashes their oracles.
+- release.sh: it now ends with `scripts/oracle_diff.py`, every case against `oracles.tsv` (a differing hash, a failed
+  run, a workload with no oracle or no build), and exits 1 on any. The release before is now the previous `vX.Y.Z`
+  tag in version order (2.1.0 found nothing before), `--previous` prints it, the source wrappers of installed
+  versions are dropped even when run.sh stops (they would shadow the installed binaries afterwards), and a source
+  tree removed by hand is pruned from the clone instead of stopping the next run.
+- Tests: `tests/test_oracle_diff.py`, and `tests/test_release.py`, release.sh on a fake bendlang/bend (a local
+  repository whose tags hold a `main.ts` that bun runs as `bend`), no network. Its two end-to-end cases need perf's
+  P-core PMU and its others need bun, so CI's runner skips them. Each new test fails on the old scripts.
+- The same bug was in the 2026-10-25 run (`results/2026-10-25-2.0.39/`): it measured the installed 2.0.38 and
+  2.0.39, which are those releases, so its numbers stand; but release.sh's line that a source build counts the same
+  instructions as the release was never measured by it, and is dropped until an idle run measures it.
+- Left: run.sh names a version by its last number, so a 2.1.0 would be "0" and get the pre-2.0.38 thread option.
