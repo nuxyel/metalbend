@@ -111,6 +111,8 @@ MUTANTS = [
      "eps = 0.00000001f", "eps = 0.0000001f", oracle("adamw", "c"), "caught"),
     ("gemm-tile8 C: a product's third partial sum takes the fourth cell", "workloads/gemm-tile8/native.c",
      "s2 = s2 + x[p + 2] * y[p + 2];", "s2 = s2 + x[p + 3] * y[p + 3];", oracle("gemm-tile8", "c"), "caught"),
+    ("gemm-fork C: a column block leaves out its last column", "workloads/gemm-fork/native.c",
+     "for (int j = j0; j < j0 + cnt; j++)", "for (int j = j0; j < j0 + cnt - 1; j++)", oracle("gemm-fork", "c"), "caught"),
     ("read-native C: the hash skips the last cell", "workloads/read-native/native.c",
      "mb_show_hash(a, N);", "mb_show_hash(a, N - 1);", oracle("read-native", "c"), "caught"),
     ("lib/bt.h: RMSNorm without its epsilon", "lib/bt.h",
