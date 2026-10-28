@@ -159,7 +159,8 @@ deterministic values, and prints `lib/mb.bend`'s hash of its whole output. A C t
 with `lib/mb.h`'s inputs and hash, and must print the same hash. Its hash goes in `oracles.tsv`, and `make check` must
 pass. `run.sh` and `make check` pick up every folder under `workloads/`. A GPU target goes next to it as `gpu.bend`,
 importing the GPU lane of the same packages, with a `<name>:gpu` line in `oracles.tsv` (its hash on the device), and
-`make check-gpu` must pass.
+`make check-gpu` must pass. `docs/format.md` has the steps, and the files a run writes; `docs/VERSIONING.md` what a
+release number means for old results.
 
 ## License
 
