@@ -265,3 +265,13 @@ count repeated to within 0.0001% between rounds (cycles moved by up to 15%).
   law, PATCH for fixes and a new Bend release's results.
 - CI pushes on `main` and `devel` only. clang stays unpinned: `env.tsv` records its version on every run, and CI checks
   the bits with the runner's clang 18. Result: v1.0.0 is ready to tag; it waits for the 2.0.40 run.
+
+## 2026-10-28: Array.get_unchecked on main (probe branch, `probes/1781/`)
+
+- bendlang/bend#1880 (`Array.get_unchecked`, on main, not released): the dot of `repros/dot_mask_standalone.bend`,
+  matvec-bands and gemm-tile8 with their loop reads unchecked, the same bits, on a source build of main 4f99f4c1.
+  Instructions against C, busy machine: dot 1.67x -> 0.71x, matvec-bands 3.26x -> 3.01x, gemm-tile8 1.70x -> 1.30x;
+  checked main counts what 2.0.39 counts.
+- The scalar dot reads one number past each line, which the unchecked read must not be given at a capacity; the shape
+  that stops before it (`km1`) costs matvec-bands 11% more checked, and the mask alone is 1.2-2.0 G of its 7.4 G to C.
+- Timings wait for an idle machine (`probes/1781/README.md`).
