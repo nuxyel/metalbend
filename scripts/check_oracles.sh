@@ -16,6 +16,8 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 PIN=2.0.39
 BEND=${BEND:-bend}
+# a path (build/bin/main) made absolute: the builds run from inside each workload's folder
+case $BEND in */*) BEND=$(realpath "$BEND") ;; esac
 WORKLOADS=${WORKLOADS:-$(ls workloads)}
 THREADS=${THREADS:-"1 16"}
 TARGETS=${TARGETS:-"bend c"}
