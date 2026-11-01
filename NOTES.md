@@ -346,3 +346,24 @@ mains, `performance`, CPU 3's sibling 0-1%; two idle agent sessions (under 3% of
 - `analyze.py` no longer lists block-step's GPU output as a finding: a GPU output that differs from the CPU's is
   expected when the GPU printed its `<name>:gpu` oracle, the CPU its `<name>` oracle, and the two lines differ. Any
   other split is still a finding (tests for each case).
+
+## 2026-11-01: four new workloads for 1.1 (bits and oracles; timings at the next idle run)
+
+On a branch of their own: whether they go in 1.0 or 1.1 is Renan's call. Each one has a C target, an oracle line from
+a `ROUNDS=1 THREADS="1 16"` run of 2.0.35-2.0.39 and its C (every hash one), and mutants. Busy machine: no timings.
+
+- `softmax-ce-array`: softmax-ce's program on tensor-array 0.1.18.0 (rows read in place since 0.1.17.0). Prints
+  softmax-ce's hash, `debeda8b7bc50c1f`, so its C target is softmax-ce's, included.
+- `mnist-fork`: mnist-step with its five products through tensor-fork 0.1.5.0 (on tensor-array 0.1.18.0). Prints
+  mnist-step's hash, `2d83be930d21fb9f`, and its C target is mnist-step's. The products' depth is an equivalent mutant.
+- `read-bf16`: two SmolLM2-135M decoder layers (18 tensors, 7,080,192 numbers) in a 14 MB BF16 safetensors file
+  (`lib/gen_bf16.py`, `make data`; run.sh and the check write it when it is missing), read in the model's order with
+  bendtorch-load 1.2.0.0's `tensors`: the header lexed and parsed in Bend, each tensor read by bend-ml-binary-read's
+  BF16 effect. Oracle `d09cf49a5e86a7f6`. It does not build on 2.0.35, like read-binary: the package's C effect does
+  not compile against that runtime (`io_eff` took another signature).
+- `bpe-encode`: bend-ml-bpe-tokenizer 0.1.3.0 trains 256 merges on 4,096 words of synthetic text (a hashed vocabulary
+  of 64 words, skewed toward the first) and encodes 32,768 more words; prints the rule count, the token count (31,633)
+  and an FNV-1a hash of the ids. Its C target counts pairs in a table indexed by the two ids, with the first-appearance
+  tie-break of the package. Oracle `770398c19951fa8c`.
+- `lib/ta18.bend`: lib/ta.bend's helpers at tensor-array 0.1.18.0, since a `Mat` of one version is not one of another.
+- `make mutate`: 13 new mutants (12 caught, the depth one equivalent), 70 in all.
