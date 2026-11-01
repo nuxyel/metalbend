@@ -11,7 +11,9 @@ compared with the newest version: the ratio of their medians, and whether they p
 threads (column `threads`) get their own table: wall-time speedup over one thread, and whether every thread count
 prints the same bytes. The GPU targets (gpu.tsv, from GPU=1 ./run.sh) get a table of their own: the medians of the wall
 time and of the kernels' time on the device, and whether each prints the same bytes in every round, as the same
-version's one-thread CPU run, and as the newest version's GPU run.
+version's one-thread CPU run, and as the newest version's GPU run. The machine's state (env.tsv) gets a table, and a
+run that scripts/preflight.sh found busy (or, before it, one that started at a load average of 1 or more) is marked
+as such at the top.
 """
 import csv
 import statistics
@@ -86,6 +88,32 @@ def gpu_table(path, cell, findings):
     return lines
 
 
+MACHINE = ("cpu", "kernel", "ac_online", "power_profile", "governor", "no_turbo", "thp", "loadavg_start", "loadavg_end",
+           "pre_other_processes", "pre_cpu3_sibling", "pre_perf_event_paranoid", "busy")
+
+
+def machine(out):
+    """The machine's state from env.tsv, as table lines, and which checks found it busy ("no" when none did). A run
+    from before scripts/preflight.sh has no `busy` line: its one-minute load average at the start is then the test."""
+    path = Path(out) / "env.tsv"
+    if not path.exists():
+        return [], "no"
+    with open(path) as f:
+        env = {r["key"]: r["value"] for r in csv.DictReader(f, delimiter="\t")}
+    busy = env.get("busy")
+    if busy is None:
+        la = env.get("loadavg_start", "").split()
+        busy = "loadavg" if la and float(la[0]) >= 1.0 else "no"
+    lines = ["", "## Machine (env.tsv)", "", "| key | value |", "|---|---|"]
+    lines += [f"| {k} | {env[k] if k in env else busy if k == 'busy' else '-'} |" for k in MACHINE]
+    return lines, busy
+
+
+def busy_mark(busy):
+    return [] if busy == "no" else [f"**A busy run** ({busy}): its timings are a diagnosis, not a result, and do "
+                                    "not go in results/ or a README.", ""]
+
+
 def main(out):
     out = Path(out)
     with open(out / "runs.tsv") as f:
@@ -104,15 +132,17 @@ def main(out):
         c["sec"].append(float(r["seconds"]))
         c["hash"].add(r["hash"])
     native = {w: cell.pop((w, "c")) for w, v in list(cell) if v == "c"}
+    state, busy = machine(out)
     if not cell:
         # nothing ran on one thread under Bend (ROUNDS=0, or every build failed): say so instead of a traceback
-        (out / "summary.md").write_text(f"# {out.name}\n\nNo one-thread Bend runs in runs.tsv.\n")
+        (out / "summary.md").write_text("\n".join([f"# {out.name}", ""] + busy_mark(busy) +
+                                                   ["No one-thread Bend runs in runs.tsv."] + state) + "\n")
         print(f"{out.name}: no one-thread Bend runs in runs.tsv")
         return
     workloads = sorted({w for w, _ in cell})
     versions = sorted({v for _, v in cell}, key=vkey)
     base = versions[-1]
-    lines = [f"# {out.name}", "", f"Rounds per pair: {max(len(c['ins']) + c['bad'] for c in cell.values())}. "
+    lines = [f"# {out.name}", ""] + busy_mark(busy) + [f"Rounds per pair: {max(len(c['ins']) + c['bad'] for c in cell.values())}. "
              f"Changes are against Bend {full(base)}; **bold** is beyond noise (more than 3x the larger spread, floors 0.1% and 1%).", ""]
     lines += ["| workload | bend | Minstr | spread | Mcycles | spread | s | Δ instr | Δ cycles | hash |",
               "|---|---|---:|---:|---:|---:|---:|---:|---:|---|"]
@@ -193,6 +223,7 @@ def main(out):
     gpu = out / "gpu.tsv"
     if gpu.exists():
         lines += gpu_table(gpu, cell, findings)
+    lines += state
     lines += ["", "## Beyond noise or differing outputs", ""] + (findings or ["None."])
     (out / "summary.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
