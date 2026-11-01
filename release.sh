@@ -5,11 +5,12 @@
 #   ./release.sh --previous 2.0.40 # only print the release it would compare against
 #   ROUNDS=1 OUT=build/rehearsal ./release.sh 2.0.39   # a rehearsal: bits only, its timings thrown away
 # Builds each release from its tag in a clone of bendlang/bend ($BEND_SRC, build/bend by default, cloned if missing;
-# fetched first) with bun, the way the released binary is built from the same source, behind a wrapper at build/bin/<name> (39 for 2.0.39, 2.1.0 from 2.1 on); then
-# runs the corpus on both at 1 and 16 threads (ROUNDS, 5 by default) into results/<date>-<new>/ ($OUT) and prints what
-# moved beyond noise, any output that changed, and every case whose hash is not its oracle in oracles.tsv
-# (scripts/oracle_diff.py; release.sh then exits 1). Whether a source build counts the same instructions as the
-# released binary is not measured yet (NOTES.md, 2026-10-27).
+# fetched first) with bun, the way the released binary is built from the same source, behind a wrapper at
+# build/bin/<name> (39 for 2.0.39, 2.1.0 from 2.1 on); then runs the corpus on both at 1 and 16 threads (ROUNDS, 5 by
+# default) into results/<date>-<new>/ ($OUT) and prints what moved beyond noise, any output that changed, and every
+# case whose hash is not its oracle in oracles.tsv (scripts/oracle_diff.py, run.sh's last step; release.sh then exits
+# 1). A source build of 2.0.39 emits the released binary's code (the same .text, .rodata and .data in five workloads)
+# and counts its user-mode instructions (NOTES.md, 2026-11-01).
 set -euo pipefail
 cd "$(dirname "$0")"
 previous_only=0
