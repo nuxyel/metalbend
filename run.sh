@@ -8,8 +8,10 @@
 # instructions and is recorded apart). A run on more threads is unpinned and measured by its wall time (its
 # instructions are summed over both PMUs; its cycles are not comparable). The runtime's thread option moved between
 # +RTS and -RTS in 2.0.38. Every round runs every (workload, version, threads) case once, in a fresh order from a
-# seeded shuffle; the C targets run on one thread. One line per run in runs.tsv; the output's hash is the oracle, compared by
-# analyze.py, which also writes summary.md.
+# seeded shuffle; the C targets run on one thread. One line per run in runs.tsv; the outputs' hashes are compared by
+# analyze.py, which also writes summary.md, and then with oracles.tsv by scripts/oracle_diff.py (oracles.txt; run.sh
+# exits 1 on any difference). A binary is built again when it is missing, with REBUILD=1, or when its main.bend,
+# native.c, gpu.bend, a file of lib/ or its compiler is newer than it.
 # GPU=1 adds each workload's GPU target, built with every version, run in the same rounds with the runtime's default
 # options: its wall time, and (unless NSYS=0, or with no nsys) the time its kernels took on the device, from a second
 # run under `nsys profile --trace=cuda` (its cuda_gpu_kern_sum report). One line per run in gpu.tsv, never in runs.tsv.
@@ -22,6 +24,8 @@ THREADS=${THREADS:-1}
 GPU=${GPU:-0}
 OUT=${OUT:-results/$(date +%F)}
 mkdir -p "$OUT" build
+# written at the end only, so a run that stopped early leaves none (release.sh reads it)
+rm -f "$OUT/oracles.txt"
 # the dense-read workloads' input, made once
 [ -f data/dense.bin ] || python3 -I lib/gen_dense.py
 # the GPU lane, asked for: a toolkit and a device, or stop (scripts/cuda.sh)
@@ -46,6 +50,19 @@ bend_of() {
     39) echo "$HOME/.bend/bin/bend" ;;
     *) echo "unknown Bend version $1" >&2; exit 2 ;;
   esac
+}
+# whether binary $1 must be built again: it is missing, REBUILD=1, or any of its sources ($2...) is newer than it (a
+# binary left from an older main.bend, native.c, lib/ file or compiler would otherwise be measured as the new one)
+stale() {
+  local bin=$1 f; shift
+  [ -x "$bin" ] && [ "${REBUILD:-0}" = 0 ] || return 0
+  for f in "$@"; do [ "$f" -nt "$bin" ] && return 0; done
+  return 1
+}
+# a C target's sources: its native.c, lib/'s headers and the files it includes from another workload ("../x/native.c")
+c_sources() {
+  echo "workloads/$1/native.c" lib/*
+  sed -n 's|^#include "\.\./\([^."][^"]*\)"|workloads/\1|p' "workloads/$1/native.c"
 }
 # the runtime's thread option ($2 threads): between +RTS and -RTS from 2.0.38 on (bendlang/bend#1530), bare before
 rts() { if [ "$1" = c ]; then return; elif [ "$1" -ge 38 ]; then echo "+RTS --threads $2 -RTS"; else echo "--threads $2"; fi; }
@@ -75,10 +92,10 @@ for w in $WORKLOADS; do
   for v in $VERSIONS; do
     bin=build/$v/$w
     mkdir -p "build/$v"
-    if [ -x "$bin" ] && [ "${REBUILD:-0}" = 0 ]; then continue; fi
     # resolved here, not inside the subshell: after its cd, bend_of would miss build/bin/<n> and fall back to an
     # installed release (or none, for a version newer than the installed ones)
     bend=$(bend_of "$v")
+    stale "$bin" "workloads/$w/main.bend" lib/* "$(readlink -f "$bend")" || continue
     t0=$(date +%s.%N)
     if (cd "workloads/$w" && "$bend" main.bend -o "../../$bin") > "build/$v/$w.log" 2>&1; then st=ok; else st=fail; rm -f "$bin"; fi
     t1=$(date +%s.%N)
@@ -90,7 +107,8 @@ done
 for w in $WORKLOADS; do
   [ -f "workloads/$w/native.c" ] || continue
   mkdir -p build/c
-  if [ -x "build/c/$w" ] && [ "${REBUILD:-0}" = 0 ]; then continue; fi
+  # shellcheck disable=SC2046
+  stale "build/c/$w" $(c_sources "$w") || continue
   if clang -std=c11 -O3 "workloads/$w/native.c" -o "build/c/$w" -lm > "build/c/$w.log" 2>&1; then st=ok; else st=fail; fi
   echo -e "$w\tc\t$st\t0" | tee -a "$OUT/builds.tsv"
 done
@@ -102,9 +120,10 @@ if [ "$GPU" = 1 ]; then
     for v in $VERSIONS; do
       bin=build/gpu-$v/$w
       mkdir -p "build/gpu-$v"
-      if [ -x "$bin" ] && [ "${REBUILD:-0}" = 0 ]; then continue; fi
+      bend=$(bend_of "$v")
+      stale "$bin" "workloads/$w/gpu.bend" lib/* "$(readlink -f "$bend")" || continue
       t0=$(date +%s.%N)
-      if gpu_build "$w" "$(bend_of "$v")" "$PWD/$bin" > "build/gpu-$v/$w.log" 2>&1; then st=ok; else st=fail; rm -f "$bin"; fi
+      if gpu_build "$w" "$bend" "$PWD/$bin" > "build/gpu-$v/$w.log" 2>&1; then st=ok; else st=fail; rm -f "$bin"; fi
       t1=$(date +%s.%N)
       echo -e "$w\tgpu-$v\t$st\t$(awk "BEGIN{printf \"%.2f\", $t1 - $t0}")" | tee -a "$OUT/builds.tsv"
     done
@@ -185,3 +204,6 @@ done
 rm -f "$OUT/.perf" "$OUT/.out" "$OUT/.err"
 echo -e "loadavg_end\t$(cut -d' ' -f1-3 /proc/loadavg)" >> "$OUT/env.tsv"
 python3 -I analyze.py "$OUT"
+# every case against oracles.tsv ($ORACLES): a differing hash, a failed run, a missing build; run.sh exits 1 on any
+python3 -I scripts/oracle_diff.py "$OUT" "${ORACLES:-oracles.tsv}" | tee "$OUT/oracles.txt"
+exit "${PIPESTATUS[0]}"
