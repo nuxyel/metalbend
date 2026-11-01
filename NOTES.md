@@ -332,3 +332,17 @@ mains, `performance`, CPU 3's sibling 0-1%; two idle agent sessions (under 3% of
   2.0 sees on a sustained load. The requirement stands as written (an idle machine, preflight clean); the blocked
   pair, gemm-fork against its own C, is the ratio that holds even on a loaded L3. The cycle ratio of record for
   gemm-fork against its blocked C is 1.14x (10-27's busy estimate was 1.15x).
+
+## 2026-11-01: docs for a reader from outside, the pinned CPU and the PMU as variables
+
+- Each workload has a `README.md` (what it computes, its package, its C and GPU targets, its oracle, its mutants), and
+  the README has "Reading a run" (summary.md from top to bottom) and "On another machine" (perf events, the pinned CPU,
+  where each Bend version is found).
+- `scripts/pmu.sh`: `CPU=<n>` pins the one-thread runs (3 by default) in `run.sh`, `probes/l3/run.sh` and
+  `probes/1781/count.sh`, and the PMU is detected: `cpu_core` (`cpu_atom` for an E-core, both PMUs on more threads) on a
+  hybrid Intel CPU, plain `cpu` elsewhere. `env.tsv` gains `cpu_pinned` and `pmu`; the preflight's sibling check
+  follows the CPU (`cpu3_sibling` by default, so the keys of a default run do not change). Tests on fake PMU trees and
+  with stand-in `perf` and `taskset`. Nothing measured: the default run counts the same events as before.
+- `analyze.py` no longer lists block-step's GPU output as a finding: a GPU output that differs from the CPU's is
+  expected when the GPU printed its `<name>:gpu` oracle, the CPU its `<name>` oracle, and the two lines differ. Any
+  other split is still a finding (tests for each case).
