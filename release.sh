@@ -48,12 +48,18 @@ for v in "$old" "$new"; do
   chmod +x "build/bin/$n"
   echo "Bend $v: $("build/bin/$n" version)"
 done
-# a fresh build of every workload with both, so no binary from another build of the same number is reused
+# a fresh build of every workload, C target and GPU target, so no binary from another build of the same number (or
+# from an older native.c) is reused
 for v in "$old" "$new"; do rm -rf "build/${v##*.}"; done
+rm -rf build/c build/gpu-*
 out=${OUT:-results/$(date +%F)-$new}
-OUT=$out VERSIONS="${old##*.} ${new##*.}" THREADS=${THREADS:-"1 16"} ./run.sh > /dev/null
+# run.sh exits 1 when a hash is not its oracle, and writes oracles.txt only once it reached the end
+st=0
+OUT=$out VERSIONS="${old##*.} ${new##*.}" THREADS=${THREADS:-"1 16"} ./run.sh > /dev/null || st=$?
+[ -f "$out/oracles.txt" ] || { echo "run.sh stopped (exit $st) before the end" >&2; exit "$st"; }
 echo "== $out/summary.md"
 sed -n '/## Beyond noise or differing outputs/,$p' "$out/summary.md"
 [ "${ROUNDS:-5}" -ge 3 ] || echo "(fewer than 3 rounds: nothing is marked beyond noise; the tables are in $out/summary.md)"
 echo "== against oracles.tsv"
-python3 -I scripts/oracle_diff.py "$out"
+cat "$out/oracles.txt"
+exit "$st"
