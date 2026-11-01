@@ -12,7 +12,7 @@ threads (column `threads`) get their own table: wall-time speedup over one threa
 prints the same bytes. The GPU targets (gpu.tsv, from GPU=1 ./run.sh) get a table of their own: the medians of the wall
 time and of the kernels' time on the device, and whether each prints the same bytes in every round, as the same
 version's one-thread CPU run, and as the newest version's GPU run. The machine's state (env.tsv) gets a table, and a
-run that scripts/preflight.sh found busy (or, before it, one that started at a load average of 1 or more) is marked
+run that scripts/preflight.sh found busy (or, before it, one that started at a load average of 2 or more) is marked
 as such at the top.
 """
 import csv
@@ -103,7 +103,7 @@ def machine(out):
     busy = env.get("busy")
     if busy is None:
         la = env.get("loadavg_start", "").split()
-        busy = "loadavg" if la and float(la[0]) >= 1.0 else "no"
+        busy = "loadavg" if la and float(la[0]) >= 2.0 else "no"
     lines = ["", "## Machine (env.tsv)", "", "| key | value |", "|---|---|"]
     lines += [f"| {k} | {env[k] if k in env else busy if k == 'busy' else '-'} |" for k in MACHINE]
     return lines, busy

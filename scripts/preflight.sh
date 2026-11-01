@@ -2,16 +2,17 @@
 # Whether this machine is fit for timings, before a run that measures them (CLAUDE.md's rule 3):
 #   scripts/preflight.sh          # one line per check (check, value, ok or busy); exits 1 if any is busy
 #   scripts/preflight.sh --env    # the same as key/value lines for env.tsv (run.sh), and a last line `busy`; exits 0
-# The checks: mains power; the power profile `performance`; the one-minute load average under MAX_LOAD (1.0); no
-# other Bend compiler or agent running (bend, a source build's bend2/main.ts, opencode, claude, codex); perf_event_paranoid
-# at most 1 (run.sh counts kernel-mode events too); and CPU 3's SMT sibling idle over PREFLIGHT_SAMPLE seconds (1), under 10%
-# of its time busy, since run.sh pins one thread to CPU 3 and the sibling shares its core.
+# The checks: mains power; the power profile `performance`; the one-minute load average under MAX_LOAD (2.0; the runs
+# of record started at 0.9-1.4); no other Bend compiler or agent running (bend, a source build's bend2/main.ts,
+# opencode, claude, codex); perf_event_paranoid at most 1 (run.sh counts kernel-mode events too); and CPU 3's SMT
+# sibling idle over PREFLIGHT_SAMPLE seconds (1), under 10% of its time busy, since run.sh pins one thread to CPU 3 and
+# the sibling shares its core.
 # Only timings need this: the bits (make check) and instruction counts on a busy machine are labeled, never refused.
 # PREFLIGHT_SYS and PREFLIGHT_PROC (/sys and /proc) are for the tests.
 set -uo pipefail
 SYS=${PREFLIGHT_SYS:-/sys}
 PROC=${PREFLIGHT_PROC:-/proc}
-MAX_LOAD=${MAX_LOAD:-1.0}
+MAX_LOAD=${MAX_LOAD:-2.0}
 SAMPLE=${PREFLIGHT_SAMPLE:-1}
 mode=${1:-table}
 

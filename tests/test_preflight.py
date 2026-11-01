@@ -53,7 +53,7 @@ class Preflight(unittest.TestCase):
 
     def test_each_busy_check_fails_it(self):
         for kw, name in ((dict(online="0"), "ac"), (dict(profile="balanced"), "power_profile"),
-                         (dict(load="1.50"), "loadavg"), (dict(paranoid="2"), "perf_event_paranoid"),
+                         (dict(load="2.50"), "loadavg"), (dict(paranoid="2"), "perf_event_paranoid"),
                          (dict(after=STAT_BUSY), "cpu3_sibling"),
                          (dict(ps=IDLE_PS + "  300 opencode opencode serve\n"), "other_processes"),
                          (dict(ps=IDLE_PS + "  301 claude claude\n"), "other_processes"),
