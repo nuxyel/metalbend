@@ -68,14 +68,22 @@ kernel time and count from a second run under `nsys`, empty with `NSYS=0`), `has
 `threads.tsv`: `bend`, `threads`, `threads_peak`: the thread guard's check that a version honored the thread count.
 
 `env.tsv`, `key` and `value`: `date`, `cpu`, `kernel`, `clang` (its version; clang is not pinned, so this line is the
-record), `ac_online`, `power_profile`, `loadavg_start` and `loadavg_end`, `metalbend` (the commit, `-dirty` if the
-tree had changes), `bend_<n>` for each version, and with `GPU=1` also `gpu`, `cuda_home` and `nsys`.
+record), `ac_online`, `power_profile`, `governor` (CPU 3's), `no_turbo`, `thp` (transparent huge pages), `bun`,
+`loadavg_start` and `loadavg_end`, `metalbend` (the commit, `-dirty` if the tree had changes), `bend_<name>` (what each
+version reports) and `source_<name>` (`source <commit> (<tree>)` for a source build, `binary sha256:<16 hex>` for a
+released binary), the `pre_<check>` lines of `scripts/preflight.sh --env` (`pre_ac`, `pre_power_profile`,
+`pre_loadavg`, `pre_other_processes`, `pre_perf_event_paranoid`, `pre_cpu3_sibling`) and `busy` (the checks that
+failed, or `no`), one `pkg_<name>@<version>` per BendHub package the corpus imports (its store id and a hash of its
+files, `scripts/packages.py`), and with `GPU=1` also `gpu`, `cuda_home` and `nsys`.
+
+`oracles.txt`: `scripts/oracle_diff.py`'s comparison of every case with `oracles.tsv`, written at the end of the run
+(run.sh exits 1 when it lists a problem).
 
 `out-<workload>-<version>-t<threads>.txt` (and `-gpu.txt`): one run's output, kept for reading a differing hash.
 
-`summary.md`: `analyze.py`'s tables (medians and spreads by workload and version, Bend / C ratios, threads, GPU) and
-what moved beyond noise: more than 3x the larger spread between rounds, with floors of 0.1% for instructions and 1% for
-cycles, and only with 3 rounds or more.
+`summary.md`: `analyze.py`'s tables (medians and spreads by workload and version, Bend / C ratios, threads, GPU, the
+machine's state from `env.tsv`, with a busy run marked at the top) and what moved beyond noise: more than 3x the
+larger spread between rounds, with floors of 0.1% for instructions and 1% for cycles, and only with 3 rounds or more.
 
 A folder's `README.md`, written by hand, says what the run was for and the state of the machine. A run on a busy
 machine is a diagnosis, not a result, and its folder does not go in `results/`. `results/` is append-only.
