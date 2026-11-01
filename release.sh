@@ -5,7 +5,7 @@
 #   ./release.sh --previous 2.0.40 # only print the release it would compare against
 #   ROUNDS=1 OUT=build/rehearsal ./release.sh 2.0.39   # a rehearsal: bits only, its timings thrown away
 # Builds each release from its tag in a clone of bendlang/bend ($BEND_SRC, build/bend by default, cloned if missing;
-# fetched first) with bun, the way the released binary is built from the same source, behind a wrapper at build/bin/<n>; then
+# fetched first) with bun, the way the released binary is built from the same source, behind a wrapper at build/bin/<name> (39 for 2.0.39, 2.1.0 from 2.1 on); then
 # runs the corpus on both at 1 and 16 threads (ROUNDS, 5 by default) into results/<date>-<new>/ ($OUT) and prints what
 # moved beyond noise, any output that changed, and every case whose hash is not its oracle in oracles.tsv
 # (scripts/oracle_diff.py; release.sh then exits 1). Whether a source build counts the same instructions as the
@@ -26,19 +26,20 @@ old=${2:-$(git -C "$src" tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed
 git -C "$src" rev-parse -q --verify "refs/tags/v$old" > /dev/null || { echo "no tag v$old in bendlang/bend" >&2; exit 2; }
 if [ "$previous_only" = 1 ]; then echo "$old"; exit 0; fi
 mkdir -p build/bin build/src
+# a version's name in run.sh: a 2.0.x release by its last number (39), from 2.1 on by its full number (2.1.0)
+name() { case $1 in 2.0.*) echo "${1##*.}" ;; *) echo "$1" ;; esac; }
 # a source tree removed by hand (rm -rf build/src) stays registered in the clone, and worktree add would refuse it
 git -C "$src" worktree prune
 # versions run.sh knows as installed releases go back to those when release.sh ends, failed or not: their source
 # wrappers and builds would otherwise shadow the installed binaries in every later run.sh
 cleanup() {
   for v in "$old" "$new"; do
-    n=${v##*.}
-    if [ "$n" -ge 35 ] && [ "$n" -le 39 ]; then rm -rf "build/bin/$n" "build/$n"; fi
+    case $(name "$v") in 3[5-9]) rm -rf "build/bin/$(name "$v")" "build/$(name "$v")" "build/gpu-$(name "$v")" ;; esac
   done
 }
 trap cleanup EXIT
 for v in "$old" "$new"; do
-  n=${v##*.}
+  n=$(name "$v")
   wt=$PWD/build/src/$v
   if [ ! -d "$wt" ]; then
     git -C "$src" worktree add -q --detach "$wt" "v$v"
@@ -50,12 +51,12 @@ for v in "$old" "$new"; do
 done
 # a fresh build of every workload, C target and GPU target, so no binary from another build of the same number (or
 # from an older native.c) is reused
-for v in "$old" "$new"; do rm -rf "build/${v##*.}"; done
+for v in "$old" "$new"; do rm -rf "build/$(name "$v")"; done
 rm -rf build/c build/gpu-*
 out=${OUT:-results/$(date +%F)-$new}
 # run.sh exits 1 when a hash is not its oracle, and writes oracles.txt only once it reached the end
 st=0
-OUT=$out VERSIONS="${old##*.} ${new##*.}" THREADS=${THREADS:-"1 16"} ./run.sh > /dev/null || st=$?
+OUT=$out VERSIONS="$(name "$old") $(name "$new")" THREADS=${THREADS:-"1 16"} ./run.sh > /dev/null || st=$?
 [ -f "$out/oracles.txt" ] || { echo "run.sh stopped (exit $st) before the end" >&2; exit "$st"; }
 echo "== $out/summary.md"
 sed -n '/## Beyond noise or differing outputs/,$p' "$out/summary.md"
