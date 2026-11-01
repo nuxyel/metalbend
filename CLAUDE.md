@@ -21,7 +21,7 @@ hour that day); the launch is Renan's call. Nothing is pushed to `main` without 
    corpus runs older versions and `main` on purpose.
 2. Every workload prints a hash of its full output; a run whose hash differs from the oracle is a finding, never
    noise.
-3. Timings: one thread pinned with `taskset -c 3`, `perf stat` instructions and cycles in user mode
+3. Timings: one thread pinned with `taskset -c 3` (`CPU=3`, run.sh's default), `perf stat` instructions and cycles in user mode
    (the kernel's share varies between runs), on mains power in the
    `performance` profile, the machine idle. A busy-machine number is labeled as such.
 4. Measure kernels inside their largest program too, not only in a probe (shared memory `probe-vs-program`).
