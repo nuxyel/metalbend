@@ -81,6 +81,14 @@ c_sources() {
   echo "workloads/$1/native.c" lib/*
   sed -n 's|^#include "\.\./\([^."][^"]*\)"|workloads/\1|p' "workloads/$1/native.c"
 }
+# what a version's compiler was built from: a source build's wrapper (release.sh, scripts/bend_main.sh) names its tree,
+# whose commit is the source; a released binary is named by its SHA-256
+bend_source() {
+  local wt
+  wt=$(sed -n 's|^exec bun \(.*\)/bend2/main\.ts .*|\1|p' "$1" 2>/dev/null | head -1)
+  if [ -n "$wt" ]; then echo "source $(git -C "$wt" rev-parse HEAD 2>/dev/null || echo unknown) ($wt)"
+  else echo "binary sha256:$(sha256sum < "$(readlink -f "$1")" | cut -c1-16)"; fi
+}
 # the runtime's thread option ($2 threads): between +RTS and -RTS from 2.0.38 on (bendlang/bend#1530), bare before
 rts() {
   if [ "$1" = c ]; then return
@@ -99,7 +107,18 @@ rts() {
   echo -e "power_profile\t$(powerprofilesctl get 2>/dev/null || echo unknown)"
   echo -e "loadavg_start\t$(cut -d' ' -f1-3 /proc/loadavg)"
   echo -e "metalbend\t$(git rev-parse --short HEAD)$(git diff --quiet || echo -dirty)"
-  for v in $VERSIONS; do echo -e "bend_$v\t$($(bend_of "$v") version)"; done
+  echo -e "governor\t$(cat /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor 2>/dev/null || echo unknown)"
+  echo -e "no_turbo\t$(cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || echo unknown)"
+  echo -e "thp\t$(sed 's/.*\[\(.*\)\].*/\1/' /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null || echo unknown)"
+  echo -e "bun\t$(bun --version 2>/dev/null || echo none)"
+  for v in $VERSIONS; do
+    echo -e "bend_$v\t$($(bend_of "$v") version)"
+    echo -e "source_$v\t$(bend_source "$(bend_of "$v")")"
+  done
+  # the machine's state against scripts/preflight.sh's checks, and a last line `busy` naming the checks that failed
+  scripts/preflight.sh --env
+  # every BendHub package the corpus imports: its store id and a hash of its files
+  python3 -I scripts/packages.py
   if [ "$GPU" = 1 ]; then
     echo -e "gpu\t$(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader | head -1)"
     echo -e "cuda_home\t$CUDA_HOME ($(ls "$CUDA_LIB"/libnvrtc.so.* 2>/dev/null | sed 's|.*/||' | sort | tail -1))"
