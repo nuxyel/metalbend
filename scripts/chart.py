@@ -3,12 +3,14 @@
     python3 -I scripts/chart.py                                  # docs/results-2.0.39.svg, from the runs of record
     python3 -I scripts/chart.py 40 results/<date>-2.0.40         # docs/results-2.0.40.svg, from release.sh's run
     python3 -I scripts/chart.py 2.1.0 results/<date>-2.1.0       # docs/results-2.1.0.svg (from 2.1 on, the full name)
+    python3 -I scripts/chart.py 40 <any run folder> <out.svg>    # a run outside results/ (a rehearsal), drawn elsewhere
 
 Two panels, both on one Bend version:
-- top: Bend / C in user-mode cycles on one thread, for the six workloads with a C target (median over the rounds of
+- top: Bend / C in user-mode cycles on one thread, for every workload with a C target (median over the rounds of
   the run of record, the same numbers as README.md);
 - bottom: the wall-time speedup on 16 threads over one thread, for all eleven workloads.
-Plain SVG, standard library only, so it runs from a fresh clone.
+The CPU named in the footnote is the run's own (env.tsv's `cpu`). Plain SVG, standard library only, so it runs from a
+fresh clone.
 """
 import csv
 import statistics
@@ -54,9 +56,26 @@ def full(v):
     return f"2.0.{v}" if v.isdigit() else v
 
 
+RESULTS = None  # the folder the runs are in: ROOT / "results" unless a run is given by its path
+
+
 def runs(name):
-    with open(ROOT / "results" / name / "runs.tsv") as f:
+    with open((RESULTS or ROOT / "results") / name / "runs.tsv") as f:
         return list(csv.DictReader(f, delimiter="\t"))
+
+
+def cpu_name(name):
+    """The run's CPU from its env.tsv, without the vendor's marks: "Intel(R) Core(TM) Ultra 7 155H" -> "Core Ultra 7
+    155H"."""
+    try:
+        with open((RESULTS or ROOT / "results") / name / "env.tsv") as f:
+            cpu = {r["key"]: r["value"] for r in csv.DictReader(f, delimiter="\t")}.get("cpu", "")
+    except OSError:
+        cpu = ""
+    for mark in ("(R)", "(TM)", "(tm)"):
+        cpu = cpu.replace(mark, "")
+    cpu = " ".join(w for w in cpu.split() if w not in ("Intel", "AMD", "CPU", "Processor"))
+    return cpu or "CPU not recorded"
 
 
 def ok(r):
@@ -145,12 +164,17 @@ def panel(y0, title, subtitle, rows, xmax, ticks, ref_label, color_of, note_of, 
 
 
 def main():
-    global VERSION, C_RUNS, THREAD_RUN
+    global VERSION, C_RUNS, THREAD_RUN, RESULTS
+    out_path = None
     if len(sys.argv) > 1:
-        VERSION, run = sys.argv[1], Path(sys.argv[2]).name
+        d = Path(sys.argv[2])
+        d = d.resolve() if d.is_absolute() or d.exists() else ROOT / d
+        VERSION, run, RESULTS = sys.argv[1], d.name, d.parent
         THREAD_RUN = run
         C_RUNS = {w: run for w in sorted({r["workload"] for r in runs(run) if r["bend"] == "c"})}
-    out_path = ROOT / "docs" / f"results-{full(VERSION)}.svg"
+        if len(sys.argv) > 3:
+            out_path = Path(sys.argv[3]).resolve()
+    out_path = out_path or ROOT / "docs" / f"results-{full(VERSION)}.svg"
     ratios = c_ratios()
     speed = speedups()
     parts = []
@@ -169,10 +193,12 @@ def main():
                  lambda v: "bar" if v >= 1.1 else "flat", lambda w: NOTES.get(w, "") if speed[w] < 1.1 else "")
     parts += p
     y += h + 6
-    parts.append(text(24, y + 8, "Core Ultra 7 155H. One thread: pinned to a P-core, user-mode cycles from perf stat. "
+    parts.append(text(24, y + 8, f"{cpu_name(THREAD_RUN)}. One thread: pinned to a P-core, user-mode cycles from perf stat. "
                       f"Medians over {'-'.join(str(n) for n in sorted(set(ROUNDS.values())))} round{'s' if max(ROUNDS.values()) > 1 else ''}.", "foot"))
+    where = RESULTS or ROOT / "results"
+    shown = where.relative_to(ROOT) if where.is_relative_to(ROOT) else where
     parts.append(text(24, y + 24, "Source: runs.tsv in " + " and ".join(
-        f"results/{r}" for r in sorted(set(C_RUNS.values()) | {THREAD_RUN})) + ".", "foot"))
+        f"{shown}/{r}" for r in sorted(set(C_RUNS.values()) | {THREAD_RUN})) + ".", "foot"))
     height = y + 40
     style = """
   svg { font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; }
@@ -207,7 +233,7 @@ def main():
            f'<title id="t">Bend {full(VERSION)} against handwritten C, and its speedups on 16 threads</title>',
            f"<style>{style}\n</style>", f'<rect class="bg" width="{W}" height="{height:.0f}"/>'] + parts + ["</svg>"]
     out_path.write_text("\n".join(svg) + "\n")
-    print(f"{out_path.relative_to(ROOT)}")
+    print(out_path.relative_to(ROOT) if out_path.is_relative_to(ROOT) else out_path)
     for w, v in sorted(ratios.items(), key=lambda kv: kv[1]):
         print(f"  C ratio  {w:15} {fmt(v)}")
     for w, v in sorted(speed.items(), key=lambda kv: -kv[1]):
