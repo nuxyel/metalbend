@@ -18,7 +18,7 @@ STAT_BUSY = "cpu3 101 0 0 1099 0 0 0 0\ncpu4 150 0 0 1050 0 0 0 0\n"   # 50% bus
 
 class Preflight(unittest.TestCase):
     def run_pf(self, *args, ps=IDLE_PS, profile="performance", load="0.20", online="1", paranoid="1",
-               siblings="3-4", after=STAT_IDLE):
+               siblings="3-4", after=STAT_IDLE, load_after=None):
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             sys_, proc, bin_ = d / "sys", d / "proc", d / "bin"
@@ -36,7 +36,8 @@ class Preflight(unittest.TestCase):
             (proc / "stat").write_text(STAT0)
             (proc / "stat.after").write_text(after)
             bin_.mkdir()
-            for name, body in (("ps", f"cat <<'EOF'\n{ps}EOF\n"), ("powerprofilesctl", f"echo {profile}\n"),
+            for name, body in (("ps", f"cat <<'EOF'\n{ps}EOF\n"), ("powerprofilesctl", (f"echo '{load_after} 0.10 0.10 1/100 1000' > '{proc}/loadavg'\n"
+                                                     if load_after else "") + f"echo {profile}\n"),
                                ("sleep", f"cp '{proc}/stat.after' '{proc}/stat'\n")):
                 (bin_ / name).write_text("#!/bin/sh\n" + body)
                 (bin_ / name).chmod(0o755)
@@ -64,6 +65,12 @@ class Preflight(unittest.TestCase):
                 p = self.run_pf(**kw)
                 self.assertEqual(p.returncode, 1, p.stdout)
                 self.assertIn(f"preflight: busy ({name})", p.stdout)
+
+    def test_the_load_is_read_before_the_other_checks(self):
+        # the checks' own processes (here powerprofilesctl) must not count in the load average they judge
+        p = self.run_pf(load="0.40", load_after="2.50")
+        self.assertEqual(p.returncode, 0, p.stdout)
+        self.assertIn("ok     loadavg              0.40", p.stdout)
 
     def test_the_processes_are_named(self):
         p = self.run_pf(ps=IDLE_PS + "  300 opencode opencode\n  301 opencode opencode\n")
