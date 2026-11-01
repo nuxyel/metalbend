@@ -24,7 +24,7 @@ if ! scripts/preflight.sh; then
 fi
 
 say "make check-gpu"
-make check-gpu
+env -u OUT make check-gpu  # check_oracles.sh builds into $OUT and clears it first: never the run's folder
 
 say "GPU=1 ./release.sh $new -> $out"
 st=0

@@ -43,7 +43,7 @@ class Launch(unittest.TestCase):
             else:
                 p.write_text("#!/usr/bin/env bash\n" + body + "\n")
             p.chmod(0o755)
-        (d / "Makefile").write_text('check-gpu:\n\techo "check-gpu" >> "$$LOG"\n')
+        (d / "Makefile").write_text('check-gpu:\n\techo "check-gpu OUT=$${OUT:-unset}" >> "$$LOG"\n')
         # a fake bendlang/bend: v2.0.39, then the probe's commit, then v2.0.40
         up = d / "build" / "bend"
         up.mkdir(parents=True)
@@ -79,7 +79,7 @@ class Launch(unittest.TestCase):
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         out = self.d / "scratch" / "run"
         self.assertEqual(log, [
-            "preflight", "check-gpu", f"release 2.0.40 OUT={out} GPU=1",
+            "preflight", "check-gpu OUT=unset", f"release 2.0.40 OUT={out} GPU=1",
             f"probe-build {Path.home()}/.bend-2.0.39/bin/bend 39", f"probe-build {self.d}/build/bin/40 40",
             "probe-count ROUNDS=5 /p/39-a /p/c /p/40-a",
             f"summarize.py {out}/probe-1781.tsv",
