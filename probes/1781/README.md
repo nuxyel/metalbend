@@ -7,10 +7,10 @@ version and the same bits.
 ## Builds
 
 - Bend 2.0.39: the released binary, `~/.bend/bin/bend`.
-- Bend main 4f99f4c1 (2026-10-28, with #1880): a worktree of bendlang/bend at `origin/main`
-  (`~/Repos/Bend2/.night/bend-main-unchecked`, branch `phase1/main-unchecked`), `bun install --frozen-lockfile` in
-  `bend2/pack`, run through the wrapper `~/Repos/Bend2/.night/bin/bend-main` (`exec bun <worktree>/bend2/main.ts "$@"`),
-  as `release.sh` builds a source version. It prints `bend 2.0.39` (main has not bumped the version).
+- Bend main 4f99f4c1 (2026-10-28, with #1880): a source build of bendlang/bend at that commit, `bun install
+  --frozen-lockfile` in `bend2/pack`, run through a wrapper (`exec bun <tree>/bend2/main.ts "$@"`), as `release.sh`
+  builds a source version; `scripts/bend_main.sh 4f99f4c1` makes the same build at `build/bin/main`. It prints
+  `bend 2.0.39` (main has not bumped the version).
 - C: `clang -std=c11 -O3` (clang 23.1.3), the flags `bend -o` gives clang.
 
 ## Variants
@@ -34,11 +34,16 @@ The emitted C of each checked/unchecked pair differs only in the reads (`blk_at(
 `(u32)i << lgs`).
 
 ```sh
-python3 -I probes/1781/gen.py ~/.bend/lib/<tensor-array 0.1.16.0>/main.bend   # build/p1781/src/{last,km1,u,u0}
-# build: (cd <dir> && <bend> main.bend -o build/p1781/<name>); the dot probes from probes/1781/*.bend
-cd build/p1781 && ROUNDS=5 ../../probes/1781/count.sh <binaries> > ../../probes/1781/results/<file>.tsv
+probes/1781/build.sh ~/.bend-2.0.39/bin/bend 39     # build/p1781/<variant>-39 and the C versions; prints their paths
+scripts/bend_main.sh && probes/1781/build.sh build/bin/main main   # with the unchecked variants
+ROUNDS=5 probes/1781/count.sh $(probes/1781/build.sh build/bin/main main) > probes/1781/results/<file>.tsv
 python3 -I probes/1781/summarize.py probes/1781/results/<file>.tsv
 ```
+
+`build.sh` runs `gen.py` on tensor-array 0.1.16.0 as the BendHub store has it (`build/p1781/src/{last,km1,u,u0}`),
+builds the published loops, `km1` and, when the Bend has `Array.get_unchecked` (from a888ef27), the unchecked
+variants (it says so when it skips them), and the C versions once. The `last` variants of the first busy run are not
+in it.
 
 `results/2026-10-28-busy-1.tsv` and `-2.tsv`: two runs of 5 rounds each, busy machine (load average 4.7-13), so the
 cycles are not a result; the instructions repeat to within 800 in each case, and the cases common to both runs give
