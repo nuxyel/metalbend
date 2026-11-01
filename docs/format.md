@@ -42,7 +42,8 @@ with `+RTS --gpu off -RTS` must print `<name>`'s hash).
 ## A run: `results/<folder>/`
 
 `run.sh` writes one folder (`OUT`, `results/<date>` by default; `release.sh` uses `results/<date>-<version>`). Every
-file is tab-separated with a header line. A version is named by its last number (`39` for 2.0.39), the C target by `c`.
+file is tab-separated with a header line. A 2.0.x version is named by its last number (`39` for 2.0.39), a version from 2.1 on by its full number (`2.1.0`),
+the C target by `c`.
 
 `runs.tsv`, one line per CPU run:
 
@@ -50,7 +51,7 @@ file is tab-separated with a header line. A version is named by its last number 
 |---|---|
 | `round` | the round, from 1; each round runs every case once in an order shuffled with the round as seed |
 | `workload` | the folder name |
-| `bend` | the version's last number, or `c` |
+| `bend` | the version's name (`39`, `2.1.0`), or `c` |
 | `instructions`, `cycles` | user-mode counts from `perf stat` (P-cores' PMU; on more threads instructions sum both PMUs and cycles are not comparable) |
 | `kinstructions`, `kcycles` | the kernel-mode counts, kept apart (page faults, huge pages) |
 | `seconds` | wall time of the run |
@@ -62,7 +63,7 @@ file is tab-separated with a header line. A version is named by its last number 
 `gpu.tsv` (only with `GPU=1`): `round`, `workload`, `bend`, `seconds` (wall), `kernel_ms` and `kernels` (the device's
 kernel time and count from a second run under `nsys`, empty with `NSYS=0`), `hash`, `status`, `loadavg`.
 
-`builds.tsv`: `workload`, `bend` (a version, `c` or `gpu-<n>`), `status` (`ok` or `fail`), `seconds`.
+`builds.tsv`: `workload`, `bend` (a version's name, `c` or `gpu-<name>`), `status` (`ok` or `fail`), `seconds`.
 
 `threads.tsv`: `bend`, `threads`, `threads_peak`: the thread guard's check that a version honored the thread count.
 
