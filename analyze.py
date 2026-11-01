@@ -1,6 +1,7 @@
 """Reads a run's runs.tsv and writes summary.md next to it.
 
-    python3 -I analyze.py results/<date>
+    python3 -I analyze.py results/<date>                 # against oracles.tsv, for the GPU targets' expected outputs
+    python3 -I analyze.py results/<date> <oracles.tsv>
 
 Per workload and Bend version: the median of user-mode instructions and cycles and of seconds over the rounds, and their spread
 (max - min over the median). Against the newest version, each older one's change, marked as beyond noise when it is
@@ -11,7 +12,8 @@ compared with the newest version: the ratio of their medians, and whether they p
 threads (column `threads`) get their own table: wall-time speedup over one thread, and whether every thread count
 prints the same bytes. The GPU targets (gpu.tsv, from GPU=1 ./run.sh) get a table of their own: the medians of the wall
 time and of the kernels' time on the device, and whether each prints the same bytes in every round, as the same
-version's one-thread CPU run, and as the newest version's GPU run. The machine's state (env.tsv) gets a table, and a
+version's one-thread CPU run, and as the newest version's GPU run; a GPU output that differs from the CPU's as
+oracles.tsv records it (its `<name>:gpu` line, the CPU's on `<name>`) is marked as expected, not listed. The machine's state (env.tsv) gets a table, and a
 run that scripts/preflight.sh found busy (or, before it, one that started at a load average of 2 or more) is marked
 as such at the top.
 """
@@ -20,6 +22,17 @@ import statistics
 import sys
 from collections import defaultdict
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+
+
+def read_oracles(path):
+    """oracles.tsv as {name: hash} (with the `<name>:gpu` lines); {} when there is no such file."""
+    path = Path(path)
+    if not path.exists():
+        return {}
+    with open(path) as f:
+        return {r["workload"]: r["hash"] for r in csv.DictReader(f, delimiter="\t") if r["workload"]}
 
 
 def full(v):
@@ -40,8 +53,17 @@ def spread(xs):
     return (max(xs) - min(xs)) / m if m else 0.0
 
 
-def gpu_table(path, cell, findings):
-    """The GPU targets' rows (gpu.tsv); cell holds the one-thread CPU runs, for their outputs."""
+def expected_split(w, gpu_hashes, cpu_hashes, oracles):
+    """Whether a GPU output that differs from the CPU's is the split oracles.tsv records: the GPU printed its
+    `<w>:gpu` hash, the CPU printed its `<w>` hash, and the two lines differ (block-step's CUDA float exp)."""
+    g, c = oracles.get(f"{w}:gpu"), oracles.get(w)
+    return bool(g and c and g != c and gpu_hashes == {g} and cpu_hashes == {c})
+
+
+def gpu_table(path, cell, findings, oracles=None):
+    """The GPU targets' rows (gpu.tsv); cell holds the one-thread CPU runs, for their outputs, and oracles the
+    recorded hashes, for a GPU output that differs from the CPU's on purpose."""
+    oracles = oracles or {}
     with open(path) as f:
         rows = list(csv.DictReader(f, delimiter="\t"))
     g = defaultdict(lambda: {"sec": [], "kms": [], "nk": [], "hash": set(), "bad": 0})
@@ -78,6 +100,8 @@ def gpu_table(path, cell, findings):
             same = "-"
         elif cpu["hash"] == c["hash"] and len(c["hash"]) == 1:
             same = "yes"
+        elif expected_split(w, c["hash"], cpu["hash"], oracles):
+            same = f"no, as oracles.tsv records ({w}:gpu)"
         else:
             same = "**no**"
             findings.append(f"- {w}: the GPU target's output differs from the CPU's on {full(v)}")
@@ -114,7 +138,7 @@ def busy_mark(busy):
                                     "not go in results/ or a README.", ""]
 
 
-def main(out):
+def main(out, oracles=ROOT / "oracles.tsv"):
     out = Path(out)
     with open(out / "runs.tsv") as f:
         allruns = list(csv.DictReader(f, delimiter="\t"))
@@ -222,7 +246,7 @@ def main(out):
                 lines.append(f"| {w} | {full(v)} | {m1:.3f} | " + " | ".join(cols) + f" | {'yes' if same else '**no**'} |")
     gpu = out / "gpu.tsv"
     if gpu.exists():
-        lines += gpu_table(gpu, cell, findings)
+        lines += gpu_table(gpu, cell, findings, read_oracles(oracles))
     lines += state
     lines += ["", "## Beyond noise or differing outputs", ""] + (findings or ["None."])
     (out / "summary.md").write_text("\n".join(lines) + "\n")
@@ -230,4 +254,4 @@ def main(out):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(*sys.argv[1:3])

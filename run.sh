@@ -242,7 +242,7 @@ for r in $(seq 1 "$ROUNDS"); do
 done
 rm -f "$OUT/.perf" "$OUT/.out" "$OUT/.err"
 echo -e "loadavg_end\t$(cut -d' ' -f1-3 /proc/loadavg)" >> "$OUT/env.tsv"
-python3 -I analyze.py "$OUT"
+python3 -I analyze.py "$OUT" "${ORACLES:-oracles.tsv}"
 # every case against oracles.tsv ($ORACLES): a differing hash, a failed run, a missing build; run.sh exits 1 on any
 python3 -I scripts/oracle_diff.py "$OUT" "${ORACLES:-oracles.tsv}" | tee "$OUT/oracles.txt"
 exit "${PIPESTATUS[0]}"
