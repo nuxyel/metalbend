@@ -6,10 +6,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from synth import row, write
+from synth import gpu_row, row, write, write_gpu
 import oracle_diff
 
-ORACLES = "workload\thash\nadamw\taaaaaaaaaaaaaaaa\nsoftmax-ce\tbbbbbbbbbbbbbbbb\n"
+ORACLES = "workload\thash\nadamw\taaaaaaaaaaaaaaaa\nadamw:gpu\teeeeeeeeeeeeeeee\nsoftmax-ce\tbbbbbbbbbbbbbbbb\n"
 
 
 def good():
@@ -23,9 +23,11 @@ def good():
 
 
 class OracleDiff(unittest.TestCase):
-    def run_on(self, rows):
+    def run_on(self, rows, gpu=None):
         with tempfile.TemporaryDirectory() as d:
             out = write(Path(d) / "run", rows)
+            if gpu is not None:
+                write_gpu(out, gpu)
             (Path(d) / "oracles.tsv").write_text(ORACLES)
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
@@ -80,6 +82,31 @@ class OracleDiff(unittest.TestCase):
         code, text = self.run_on(rows)
         self.assertEqual(code, 1)
         self.assertIn("MISSING   softmax-ce, Bend 2.0.38: no run", text)
+
+    def test_a_gpu_line_is_not_required_without_a_gpu_run(self):
+        # a CPU run (no gpu.tsv) once listed every <name>:gpu line of oracles.tsv as MISSING
+        code, text = self.run_on(good())
+        self.assertNotIn("MISSING", text)
+
+    def test_a_gpu_target_is_checked_against_its_gpu_line(self):
+        gpu = [gpu_row(1, "adamw", v, 1.0, hash="e" * 16) for v in ("38", "39")]
+        code, text = self.run_on(good(), gpu)
+        self.assertEqual((code, text), (0, "oracles: 12 cases, every hash is its oracle\n"))
+        gpu[1]["hash"] = "a" * 16   # the CPU's hash on the device: not its :gpu oracle
+        code, text = self.run_on(good(), gpu)
+        self.assertEqual(code, 1)
+        self.assertIn(f"DIFFERS   adamw, GPU target, Bend 2.0.39: {'a' * 16}, oracle {'e' * 16}", text)
+
+    def test_a_gpu_target_that_did_not_run_on_a_version_is_listed(self):
+        code, text = self.run_on(good(), [gpu_row(1, "adamw", "39", 1.0, hash="e" * 16)])
+        self.assertEqual(code, 1)
+        self.assertIn("MISSING   adamw:gpu, Bend 2.0.38", text)
+
+    def test_a_version_after_2_0_is_named_in_full(self):
+        rows = [dict(r, bend="2.1.0") if r["bend"] == "39" else r for r in good()]
+        rows[2]["hash"] = "c" * 16   # adamw on 2.1.0, one thread
+        code, text = self.run_on(rows)
+        self.assertIn("DIFFERS   adamw, Bend 2.1.0, 1 thread", text)
 
 
 if __name__ == "__main__":
