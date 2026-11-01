@@ -52,13 +52,13 @@ from 2.1 on by its full number (`2.1.0`), the C target by `c`.
 | `round` | the round, from 1; each round runs every case once in an order shuffled with the round as seed |
 | `workload` | the folder name |
 | `bend` | the version's name (`39`, `2.1.0`), or `c` |
-| `instructions`, `cycles` | user-mode counts from `perf stat` (P-cores' PMU; on more threads instructions sum both PMUs and cycles are not comparable) |
+| `instructions`, `cycles` | user-mode counts from `perf stat` (the pinned CPU's PMU, `cpu_core` or plain `cpu`, `scripts/pmu.sh`; on more threads instructions sum every PMU and cycles are not comparable) |
 | `kinstructions`, `kcycles` | the kernel-mode counts, kept apart (page faults, huge pages) |
 | `seconds` | wall time of the run |
 | `hash` | the oracle hash of its output |
 | `status` | `ok`, or `exit<code>` |
 | `loadavg` | the one-minute load average just before the run |
-| `threads` | the thread count asked for; a one-thread run is pinned to CPU 3 |
+| `threads` | the thread count asked for; a one-thread run is pinned to CPU 3 (`CPU=<n>` picks another) |
 
 `gpu.tsv` (only with `GPU=1`): `round`, `workload`, `bend`, `seconds` (wall), `kernel_ms` and `kernels` (the device's
 kernel time and count from a second run under `nsys`, empty with `NSYS=0`), `hash`, `status`, `loadavg`.
@@ -68,13 +68,16 @@ kernel time and count from a second run under `nsys`, empty with `NSYS=0`), `has
 `threads.tsv`: `bend`, `threads`, `threads_peak`: the thread guard's check that a version honored the thread count.
 
 `env.tsv`, `key` and `value`: `date`, `cpu`, `kernel`, `clang` (its version; clang is not pinned, so this line is the
-record), `ac_online`, `power_profile`, `governor` (CPU 3's), `no_turbo`, `thp` (transparent huge pages), `bun`,
-`loadavg_start` and `loadavg_end`, `metalbend` (the commit, `-dirty` if the tree had changes), `bend_<name>` (what each
-version reports) and `source_<name>` (`source <commit> (<tree>)` for a source build, `binary sha256:<16 hex>` for a
-released binary), the `pre_<check>` lines of `scripts/preflight.sh --env` (`pre_ac`, `pre_power_profile`,
-`pre_loadavg`, `pre_other_processes`, `pre_perf_event_paranoid`, `pre_cpu3_sibling`) and `busy` (the checks that
-failed, or `no`), one `pkg_<name>@<version>` per BendHub package the corpus imports (its store id and a hash of its
-files, `scripts/packages.py`), and with `GPU=1` also `gpu`, `cuda_home` and `nsys`.
+record), `ac_online`, `power_profile`, `governor` (the pinned CPU's), `no_turbo`, `thp` (transparent huge pages),
+`bun`, `cpu_pinned` (the CPU of the one-thread runs, 3 unless `CPU` says otherwise), `pmu` (the PMUs that counted
+them, `scripts/pmu.sh`), `loadavg_start` and `loadavg_end`, `metalbend` (the commit, `-dirty` if the tree had
+changes), `bend_<name>` (what each version reports) and `source_<name>` (`source <commit> (<tree>)` for a source
+build, `binary sha256:<16 hex>` for a released binary), the `pre_<check>` lines of `scripts/preflight.sh --env`
+(`pre_ac`, `pre_power_profile`, `pre_loadavg`, `pre_other_processes`, `pre_perf_event_paranoid`, and
+`pre_cpu<n>_sibling` for the pinned CPU, `pre_cpu3_sibling` by default) and `busy` (the checks that failed, or `no`),
+one `pkg_<name>@<version>` per BendHub package the corpus imports (its store id and a hash of its files,
+`scripts/packages.py`), and with `GPU=1` also `gpu`, `cuda_home` and `nsys`. Runs before 2026-11-01 have no
+`cpu_pinned` or `pmu` line; they were pinned to CPU 3 and counted by `cpu_core`.
 
 `oracles.txt`: `scripts/oracle_diff.py`'s comparison of every case with `oracles.tsv`, written at the end of the run
 (run.sh exits 1 when it lists a problem).
