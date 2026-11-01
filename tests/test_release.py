@@ -117,6 +117,15 @@ class Release(unittest.TestCase):
         self.assertEqual(p.returncode, 1)
         self.assertIn("NO RUNS", p.stdout)
 
+    def test_old_c_and_gpu_binaries_are_cleared(self):
+        # a C or GPU target built before (from an older native.c, say) must not be measured as this release's
+        for d in ("c", "gpu-39", "gpu-40"):
+            (self.mb / "build" / d).mkdir(parents=True)
+            (self.mb / "build" / d / "block-step").write_text("")
+        self.release("2.0.39", ROUNDS="0")
+        for d in ("c", "gpu-39", "gpu-40"):
+            self.assertFalse((self.mb / "build" / d / "block-step").exists(), d)
+
     def test_a_source_tree_removed_by_hand_is_made_again(self):
         self.release("2.0.39", ROUNDS="0")
         shutil.rmtree(self.mb / "build" / "src")

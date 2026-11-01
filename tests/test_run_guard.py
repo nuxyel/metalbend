@@ -35,8 +35,10 @@ class Guard(unittest.TestCase):
     def run_sh(self, threads, fake_threads="", rounds="0", fake=FAKE_BEND):
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
-            for f in ("run.sh", "analyze.py"):
+            (d / "scripts").mkdir()
+            for f in ("run.sh", "analyze.py", "scripts/oracle_diff.py"):
                 shutil.copy(ROOT / f, d / f)
+            (d / "oracles.tsv").write_text("workload\thash\nblock-step\t4355a46b19d348dc\n")
             (d / "workloads" / "block-step").mkdir(parents=True)
             (d / "workloads" / "block-step" / "main.bend").write_text("")
             (d / "data").mkdir()
@@ -48,7 +50,8 @@ class Guard(unittest.TestCase):
                        ROUNDS=rounds, OUT="results/t", FAKE_THREADS=fake_threads)
             p = subprocess.run(["bash", str(d / "run.sh")], env=env, capture_output=True, text=True, timeout=120)
             peaks = (d / "results" / "t" / "threads.tsv").read_text().splitlines()[1:]
-            self.summary = (d / "results" / "t" / "summary.md").read_text() if p.returncode == 0 else ""
+            summary = d / "results" / "t" / "summary.md"
+            self.summary = summary.read_text() if summary.exists() else ""
             return p, peaks
 
     def test_a_version_that_ignores_the_thread_option_stops_the_run(self):
@@ -69,17 +72,21 @@ class Guard(unittest.TestCase):
         self.assertIn("Bend 2.0.99 ran on 20 threads with the option for 16; stopping", p.stderr)
 
     def test_a_version_that_honors_it_passes(self):
+        # with no rounds, run.sh reaches its end and the comparison with oracles.tsv finds no runs
         p, peaks = self.run_sh("1 16")
-        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertEqual(p.returncode, 1, p.stderr)
+        self.assertNotIn("stopping", p.stderr)
+        self.assertIn("NO RUNS", p.stdout)
         self.assertEqual(peaks, ["99\t1\t1", "99\t16\t16"])
 
     def test_nothing_built_runs_no_rounds(self):
         # an empty list of cases once fed one empty case to the rounds, and analyze.py failed on it
         fails = "#!/bin/sh\n[ \"$1\" = version ] && { echo bend 2.0.99; exit 0; }\nexit 1\n"
         p, peaks = self.run_sh("1", rounds="1", fake=fails)
-        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertEqual(p.returncode, 1, p.stderr)
         self.assertEqual(peaks, [])
         self.assertIn("No one-thread Bend runs", self.summary)
+        self.assertIn("NO RUNS", p.stdout)
 
 
 if __name__ == "__main__":
