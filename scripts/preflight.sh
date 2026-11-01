@@ -2,11 +2,11 @@
 # Whether this machine is fit for timings, before a run that measures them (CLAUDE.md's rule 3):
 #   scripts/preflight.sh          # one line per check (check, value, ok or busy); exits 1 if any is busy
 #   scripts/preflight.sh --env    # the same as key/value lines for env.tsv (run.sh), and a last line `busy`; exits 0
-# The checks: mains power; the power profile `performance`; the one-minute load average under MAX_LOAD (2.0; the runs
-# of record started at 0.9-1.4); no other Bend compiler or agent running (bend, a source build's bend2/main.ts,
-# opencode, claude, codex); perf_event_paranoid at most 1 (run.sh counts kernel-mode events too); and CPU 3's SMT
-# sibling idle over PREFLIGHT_SAMPLE seconds (1), under 10% of its time busy, since run.sh pins one thread to CPU 3 and
-# the sibling shares its core.
+# The checks: the one-minute load average under MAX_LOAD (2.0; the runs of record started at 0.9-1.4), read first so
+# the other checks' processes do not count in it; mains power; the power profile `performance`; no other Bend compiler
+# or agent running (bend, a source build's bend2/main.ts, opencode, claude, codex); perf_event_paranoid at most 1
+# (run.sh counts kernel-mode events too); and CPU 3's SMT sibling idle over PREFLIGHT_SAMPLE seconds (1), under 10% of
+# its time busy, since run.sh pins one thread to CPU 3 and the sibling shares its core.
 # Only timings need this: the bits (make check) and instruction counts on a busy machine are labeled, never refused.
 # PREFLIGHT_SYS and PREFLIGHT_PROC (/sys and /proc) are for the tests.
 set -uo pipefail
@@ -18,6 +18,10 @@ mode=${1:-table}
 
 rows=()
 check() { rows+=("$1"$'\t'"$2"$'\t'"$3"); }
+
+# the load average first, before this script's own processes (powerprofilesctl, ps, the sibling's sample) add to it
+load=$(cut -d' ' -f1 "$PROC/loadavg")
+check loadavg "$load" "$(awk -v l="$load" -v m="$MAX_LOAD" 'BEGIN {print (l < m) ? "ok" : "busy"}')"
 
 # mains power: a Mains supply online; a machine with no battery is on mains by construction
 ac=unknown battery=0
@@ -33,9 +37,6 @@ check ac "$ac" "$([ "$ac" = online ] || [ "$ac" = "no battery" ] && echo ok || e
 
 profile=$(powerprofilesctl get 2>/dev/null || echo unknown)
 check power_profile "$profile" "$([ "$profile" = performance ] && echo ok || echo busy)"
-
-load=$(cut -d' ' -f1 "$PROC/loadavg")
-check loadavg "$load" "$(awk -v l="$load" -v m="$MAX_LOAD" 'BEGIN {print (l < m) ? "ok" : "busy"}')"
 
 # other compilers and agents, by command name (a source build of Bend is bun running bend2/main.ts)
 others=$(ps -eo pid=,comm=,args= 2>/dev/null | awk -v self=$$ '
