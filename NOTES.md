@@ -368,3 +368,50 @@ mutants. Busy machine: no timings.
   tie-break of the package. Oracle `770398c19951fa8c`.
 - `lib/ta18.bend`: lib/ta.bend's helpers at tensor-array 0.1.18.0, since a `Mat` of one version is not one of another.
 - `make mutate`: 13 new mutants (12 caught, the depth one equivalent), 70 in all.
+
+## 2026-11-01: launch day rehearsed on 2.0.39, 5 rounds (`results/2026-11-01-2.0.39-rehearsal/`)
+
+Renan's call: a full dress rehearsal on 2.0.39 with the fifteen workloads, timed; the run of record stays the 2.0.40
+launch run. `BUSY_OK=1 ROUNDS=5 OUT=results/2026-11-01-2.0.39-rehearsal scripts/launch.sh 2.0.39`, 2.0.38 against
+2.0.39 from their tags, 1 and 16 threads, C and GPU targets, about 15 min. Preflight clean but for four idle agent
+processes (three Codex at 0.0% CPU, the Claude Code session driving the run under 3.5%), so `env.tsv` says
+`busy other_processes`; load 1.02-2.68 before the runs, round means 1.50, 1.09, 1.82, 1.59, 1.59. 405 runs, every hash
+its oracle (`make check-gpu` 9 more). Instructions repeat to 0.00% between rounds everywhere.
+
+| Bend 2.0.39 / C, one thread | cycles | instructions |
+|---|---:|---:|
+| gemm-fork (its blocked C) | 1.13x | 1.71x |
+| softmax-ce-array | 1.18x | 1.69x |
+| adamw | 1.18x | 1.93x |
+| read-binary | 1.20x | 1.80x |
+| block-step | 1.23x | 2.11x |
+| gemm-tile8 | 1.34x | 1.70x |
+| mnist-fork | 1.39x | 2.12x |
+| attention-step | 1.41x | 2.18x |
+| read-bf16 | 1.80x | 5.81x |
+| mnist-step | 1.91x | 2.52x |
+| matvec-bands | 2.37x | 3.26x |
+| rmsnorm-step | 3.62x | 6.74x |
+| softmax-ce | 4.51x | 4.88x |
+| read-native | 19.0x | 51.0x |
+| bpe-encode | 463x | 645x |
+
+- gemm-fork against its blocked C: 1.13x (2552.0 M against 2257.3 M cycles), the L3 probe's idle 1.14x again; against
+  gemm-tile8's plain C (2261.9 M) also 1.13x, since idle the two C loops take the same cycles.
+- The four new workloads' first timings: softmax-ce-array, the same program as softmax-ce on tensor-array 0.1.18.0,
+  runs 2.89x fewer instructions and 3.85x fewer cycles than it (2,703.9 M against 7,819.2 M; 1.18x C against 4.51x).
+  mnist-fork 1.39x against mnist-step's 1.91x, with 16% fewer instructions. read-bf16 1.80x. bpe-encode 463x its C
+  (33.1 G cycles against 71.6 M): the package's training and encoding against a table indexed by the two ids, the
+  largest gap in the corpus, not read further here.
+- 2.0.38 against 2.0.39: beyond noise only softmax-ce (+183% instructions), mnist-step (+37%) and mnist-fork (+2.87%
+  instructions, +5.3% cycles, new); the rest within 0.02% in instructions.
+- 16 threads over one (2.0.39, wall time): matvec-bands 4.41x, block-step 4.08x, attention-step 3.59x, gemm-fork
+  2.12x, mnist-fork 1.12x; the rest 0.94-1.03x but read-binary 0.71x and read-native 0.66x. The thread guard saw 1 and
+  16 on both versions.
+- GPU kernel time (nsys, 2.0.38 / 2.0.39): block-step 208.9 / 204.6 ms (345 kernels), gemm-tile8 53.4 / 54.0 ms,
+  rmsnorm-step 3,273.8 / 3,272.3 ms (5,000 kernels).
+- Two harness bugs the rehearsal found, both fixed with a test: `chart.py` had no labels for the four new workloads
+  (a KeyError, so launch day would have had no chart), and `launch.sh` passed its `OUT` to `make check-gpu`, whose
+  `check_oracles.sh` builds into `$OUT`, so the GPU binaries landed in the results folder (removed before the commit).
+  The chart of this run is in the folder; `docs/results-2.0.39.svg` is unchanged.
+- The run of record remains 2.0.40's, on launch day; these numbers do not fill its blanks.
