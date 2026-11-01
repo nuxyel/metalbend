@@ -75,6 +75,45 @@ class Chart(unittest.TestCase):
         self.assertIn("Source: runs.tsv in results/run.", svg)
         self.assertIn("C ratio  gemm-tile8      2.00x", out.getvalue())
 
+    def draw(self, version, rows, env=None):
+        self.put(rows)
+        if env is not None:
+            (self.root / "results" / "run" / "env.tsv").write_text(f"key\tvalue\ncpu\t{env}\n")
+        argv = sys.argv
+        sys.argv = ["chart.py", version, "results/run", str(self.root / "out.svg")]
+        try:
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                chart.main()
+        finally:
+            sys.argv = argv
+        return (self.root / "out.svg").read_text(), out.getvalue()
+
+    def test_a_launch_run_eleven_c_targets_and_two_versions(self):
+        # the launch run's shape: every workload with a C target, the old and the new release, 1 and 16 threads;
+        # the new release's medians only, and the CPU named from env.tsv
+        rows = []
+        for i, w in enumerate(sorted(chart.LABELS)):
+            for v, f in (("39", 3), ("40", 1)):
+                rows += series(w, v, [10] * 3, cyc=[1000 * f * (i + 2)] * 3, sec=[1.0 * (i + 1)] * 3)
+                rows += series(w, v, [10] * 3, cyc=[1] * 3, sec=[0.5] * 3, threads=16)
+            rows += series(w, "c", [5] * 3, cyc=[1000] * 3)
+        svg, out = self.draw("40", rows, env="Intel(R) Core(TM) Ultra 7 155H")
+        self.assertEqual(len(chart.LABELS), 11)
+        self.assertEqual(out.count("C ratio"), 11)
+        self.assertEqual(out.count("16 thr"), 11)
+        self.assertEqual(svg.count('<rect x="290"'), 22)
+        self.assertIn("C ratio  adamw           2.00x", out)       # 2.0.40's 2x, not 2.0.39's 6x
+        self.assertIn("16 thr   softmax-ce      ", out)
+        self.assertIn("How far Bend 2.0.40 is from handwritten C", svg)
+        self.assertIn(">Core Ultra 7 155H. One thread:", svg)
+        self.assertIn("Medians over 3 rounds.", svg)
+
+    def test_a_version_named_in_full_and_no_cpu_recorded(self):
+        rows = [dict(r, bend="2.1.0") if r["bend"] == 39 else r for r in runs()]
+        svg, _ = self.draw("2.1.0", rows)
+        self.assertIn("How far Bend 2.1.0 is from handwritten C", svg)
+        self.assertIn(">CPU not recorded. One thread:", svg)
+
 
 if __name__ == "__main__":
     unittest.main()
