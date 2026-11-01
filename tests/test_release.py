@@ -39,8 +39,10 @@ def git(*args, cwd):
 
 
 def perf_counts():
+    # the PMU run.sh counts with (scripts/pmu.sh): cpu_core on a hybrid Intel CPU, plain cpu elsewhere
+    pmu = "cpu_core" if Path("/sys/bus/event_source/devices/cpu_core").is_dir() else "cpu"
     try:
-        p = subprocess.run(["perf", "stat", "-x,", "-e", "cpu_core/instructions/u", "true"], capture_output=True)
+        p = subprocess.run(["perf", "stat", "-x,", "-e", f"{pmu}/instructions/u", "true"], capture_output=True)
         return p.returncode == 0
     except FileNotFoundError:
         return False

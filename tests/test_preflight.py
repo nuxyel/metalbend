@@ -18,7 +18,7 @@ STAT_BUSY = "cpu3 101 0 0 1099 0 0 0 0\ncpu4 150 0 0 1050 0 0 0 0\n"   # 50% bus
 
 class Preflight(unittest.TestCase):
     def run_pf(self, *args, ps=IDLE_PS, profile="performance", load="0.20", online="1", paranoid="1",
-               siblings="3-4", after=STAT_IDLE, load_after=None):
+               siblings="3-4", after=STAT_IDLE, load_after=None, cpu=None, before=STAT0):
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             sys_, proc, bin_ = d / "sys", d / "proc", d / "bin"
@@ -27,13 +27,13 @@ class Preflight(unittest.TestCase):
                 (sys_ / "class" / "power_supply" / s / "type").write_text(t + "\n")
                 if o is not None:
                     (sys_ / "class" / "power_supply" / s / "online").write_text(o + "\n")
-            topo = sys_ / "devices" / "system" / "cpu" / "cpu3" / "topology"
+            topo = sys_ / "devices" / "system" / "cpu" / f"cpu{cpu or 3}" / "topology"
             topo.mkdir(parents=True)
             (topo / "thread_siblings_list").write_text(siblings + "\n")
             (proc / "sys" / "kernel").mkdir(parents=True)
             (proc / "sys" / "kernel" / "perf_event_paranoid").write_text(paranoid + "\n")
             (proc / "loadavg").write_text(f"{load} 0.10 0.10 1/100 1000\n")
-            (proc / "stat").write_text(STAT0)
+            (proc / "stat").write_text(before)
             (proc / "stat.after").write_text(after)
             bin_.mkdir()
             for name, body in (("ps", f"cat <<'EOF'\n{ps}EOF\n"), ("powerprofilesctl", (f"echo '{load_after} 0.10 0.10 1/100 1000' > '{proc}/loadavg'\n"
@@ -43,6 +43,9 @@ class Preflight(unittest.TestCase):
                 (bin_ / name).chmod(0o755)
             env = dict(os.environ, PREFLIGHT_SYS=str(sys_), PREFLIGHT_PROC=str(proc), PREFLIGHT_SAMPLE="1",
                        PATH=f"{bin_}:{os.environ['PATH']}")
+            env.pop("CPU", None)
+            if cpu:
+                env["CPU"] = cpu
             return subprocess.run(["bash", str(ROOT / "scripts" / "preflight.sh"), *args], env=env,
                                   capture_output=True, text=True, timeout=30)
 
@@ -79,6 +82,14 @@ class Preflight(unittest.TestCase):
     def test_no_sibling_and_no_battery_pass(self):
         p = self.run_pf(siblings="3")
         self.assertIn("ok     cpu3_sibling         none", p.stdout)
+
+    def test_cpu_names_the_core_whose_sibling_is_sampled(self):
+        # CPU=5 (run.sh's pin): its sibling cpu6 is sampled, and the check is named after it
+        before, after = (t.replace("cpu3", "cpu5").replace("cpu4", "cpu6") for t in (STAT0, STAT_BUSY))
+        p = self.run_pf(cpu="5", siblings="5-6", before=before, after=after)
+        self.assertEqual(p.returncode, 1, p.stdout)
+        self.assertIn("busy   cpu5_sibling         cpu6 50%", p.stdout)
+        self.assertNotIn("cpu3", p.stdout)
 
     def test_env_lines_for_run_sh(self):
         p = self.run_pf("--env", load="3.00")
