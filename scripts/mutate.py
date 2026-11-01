@@ -28,10 +28,10 @@ def oracle(workload, target):
     return gate
 
 
-def fresh_data(workload, target):
-    """The bits check on a workload that reads data/dense.bin, with the file written again by lib/gen_dense.py."""
+def fresh_data(workload, target, data="dense.bin"):
+    """The bits check on a workload that reads data/<data>, with the file written again by its lib/gen_*.py."""
     inner = oracle(workload, target)
-    dense = ROOT / "data" / "dense.bin"
+    dense = ROOT / "data" / data
 
     def gate():
         kept = dense.with_suffix(".kept")
@@ -93,7 +93,34 @@ MUTANTS = [
      "blocks(16n, 0, f,", "blocks(15n, 0, f,", oracle("read-native", "bend"), "caught"),
     ("read-binary: the read starts one cell late", "workloads/read-binary/main.bend",
      "R.read_f32(f, 0, 4194304,", "R.read_f32(f, 4, 4194304,", oracle("read-binary", "bend"), "caught"),
+    ("softmax-ce-array: the first round's seed", "workloads/softmax-ce-array/main.bend",
+     "go(6n, 7, TA.Mat.zeros(64n, 49152n))", "go(6n, 8, TA.Mat.zeros(64n, 49152n))", oracle("softmax-ce-array", "bend"),
+     "caught"),
+    ("mnist-fork: one batch fewer", "workloads/mnist-fork/main.bend",
+     "tloop(200n, 0, 0.1,", "tloop(199n, 0, 0.1,", oracle("mnist-fork", "bend"), "caught"),
+    ("mnist-fork: the first layer's product in one block", "workloads/mnist-fork/main.bend",
+     "TF.matmul(100n, 784n, 128n, 3n, x, w1)", "TF.matmul(100n, 784n, 128n, 0n, x, w1)", oracle("mnist-fork", "bend"),
+     "equivalent: tensor-fork's blocks give the same bits at any depth (the reason mnist-fork prints mnist-step's hashes)"),
+    ("read-bf16: the two layers read in the other order", "workloads/read-bf16/main.bend",
+     'layer("model.layers.0.", layer("model.layers.1.", Nil{}))',
+     'layer("model.layers.1.", layer("model.layers.0.", Nil{}))', oracle("read-bf16", "bend"), "caught"),
+    ("read-bf16: k_proj and v_proj swapped", "workloads/read-bf16/main.bend",
+     'p ++ "self_attn.k_proj.weight"', 'p ++ "self_attn.v_proj.weight"', oracle("read-bf16", "bend"), "caught"),
+    ("bpe-encode: one merge fewer", "workloads/bpe-encode/main.bend",
+     "BPE.train(256n, 0n,", "BPE.train(255n, 0n,", oracle("bpe-encode", "bend"), "caught"),
     # the C targets
+    ("softmax-ce-array C: exp in single precision, through softmax-ce's C", "workloads/softmax-ce/native.c",
+     "e[j] = (float)exp((double)(row[j] - m));", "e[j] = expf(row[j] - m);", oracle("softmax-ce-array", "c"), "caught"),
+    ("mnist-fork C: the ReLU's gradient passes zeros, through mnist-step's C", "workloads/mnist-step/native.c",
+     "(z1[t] > 0.0f ? 1.0f : 0.0f)", "(z1[t] >= 0.0f ? 1.0f : 0.0f)", oracle("mnist-fork", "c"), "caught"),
+    ("read-bf16 C: a BF16 widened one bit short", "workloads/read-bf16/native.c",
+     "u2f((uint32_t)buf[i] << 16)", "u2f((uint32_t)buf[i] << 15)", oracle("read-bf16", "c"), "caught"),
+    ("read-bf16 C: the data counted from the header's start", "workloads/read-bf16/native.c",
+     "fseek(f, (long)(8 + len + b), SEEK_SET)", "fseek(f, (long)(8 + b), SEEK_SET)", oracle("read-bf16", "c"), "caught"),
+    ("bpe-encode C: a tie goes to the pair that appears last", "workloads/bpe-encode/native.c",
+     "if (cnt[order[k]] > cnt[best]) best", "if (cnt[order[k]] >= cnt[best]) best", oracle("bpe-encode", "c"), "caught"),
+    ("bpe-encode C: merges overlap", "workloads/bpe-encode/native.c",
+     "{ t[o++] = c; i += 2; }", "{ t[o++] = c; i += 1; }", oracle("bpe-encode", "c"), "caught"),
     ("matvec-bands C: the four sums joined in another order", "workloads/matvec-bands/native.c",
      "y[j] = (a0 + a1) + (a2 + a3);", "y[j] = (a0 + a2) + (a1 + a3);", oracle("matvec-bands", "c"), "caught"),
     ("matvec-bands C: the operands of one addition swapped", "workloads/matvec-bands/native.c",
@@ -154,6 +181,8 @@ MUTANTS = [
      "equivalent: the same number of zeroed bytes"),
     ("gen_dense.py: another seed", "lib/gen_dense.py",
      "SEED = 9", "SEED = 8", fresh_data("read-native", "c"), "caught"),
+    ("gen_bf16.py: another seed", "lib/gen_bf16.py",
+     "SEED = 11", "SEED = 12", fresh_data("read-bf16", "c", "bf16.safetensors"), "caught"),
     ("oracles.tsv: one digit of an oracle", "oracles.tsv",
      "softmax-ce\tdebeda8b7bc50c1f", "softmax-ce\tdebeda8b7bc50c1e", oracle("softmax-ce", "c"), "caught"),
     # the tools
