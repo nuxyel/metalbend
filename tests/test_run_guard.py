@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from synth import ROOT
+from synth import ROOT, copy_tools
 
 # a stand-in for `bend`: `version` prints one, `main.bend -o <out>` writes <out>, a program that starts FAKE_THREADS
 # threads in all (or the count after +RTS --threads) and holds them long enough for the guard to count them
@@ -36,8 +36,7 @@ class Guard(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             (d / "scripts").mkdir()
-            for f in ("run.sh", "analyze.py", "scripts/oracle_diff.py"):
-                shutil.copy(ROOT / f, d / f)
+            copy_tools(d)
             (d / "oracles.tsv").write_text("workload\thash\nblock-step\t4355a46b19d348dc\n")
             (d / "workloads" / "block-step").mkdir(parents=True)
             (d / "workloads" / "block-step" / "main.bend").write_text("")

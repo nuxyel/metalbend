@@ -21,11 +21,13 @@ def scaled(xs, f):
 
 
 class Analyze(unittest.TestCase):
-    def summary(self, rows, gpu=None):
+    def summary(self, rows, gpu=None, env=None):
         with tempfile.TemporaryDirectory() as d:
             out = write(Path(d) / "run", rows)
             if gpu is not None:
                 write_gpu(out, gpu)
+            if env is not None:
+                (out / "env.tsv").write_text("key\tvalue\n" + "".join(f"{k}\t{v}\n" for k, v in env.items()))
             with contextlib.redirect_stdout(io.StringIO()):
                 analyze.main(out)
             return (out / "summary.md").read_text()
@@ -186,6 +188,22 @@ class Analyze(unittest.TestCase):
                       self.summary(series("w", 39, BASE), gpu))
         gpu = [gpu_row(1, "w", 39, 9.0, status="exit1")]
         self.assertIn("| w | 2.0.39 | - | - | - | - | - | failed | - |", self.summary(series("w", 39, BASE), gpu))
+
+    def test_the_machine_state_is_a_table(self):
+        text = self.summary(series("w", 39, BASE), env={"cpu": "Fake CPU", "governor": "powersave", "busy": "no"})
+        self.assertIn("| cpu | Fake CPU |", text)
+        self.assertIn("| governor | powersave |", text)
+        self.assertIn("| thp | - |", text)
+        self.assertNotIn("busy run", text)
+
+    def test_a_busy_run_is_marked(self):
+        text = self.summary(series("w", 39, BASE), env={"busy": "loadavg,other_processes"})
+        self.assertTrue(text.startswith("# run\n\n**A busy run** (loadavg,other_processes): "), text[:200])
+
+    def test_a_run_from_before_the_preflight_is_judged_by_its_load(self):
+        self.assertIn("**A busy run** (loadavg)", self.summary(series("w", 39, BASE), env={"loadavg_start": "2.5 1 1"}))
+        self.assertNotIn("busy run", self.summary(series("w", 39, BASE), env={"loadavg_start": "0.4 1 1"}))
+        self.assertNotIn("busy run", self.summary(series("w", 39, BASE)))
 
     def test_a_run_with_no_rounds(self):
         self.assertIn("No one-thread Bend runs in runs.tsv.", self.summary([]))

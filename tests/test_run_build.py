@@ -9,7 +9,7 @@ import time
 import unittest
 from pathlib import Path
 
-from synth import ROOT
+from synth import ROOT, copy_tools
 from test_run_guard import FAKE_BEND
 
 # the fake Bend, which also logs each build to $FAKE_LOG
@@ -22,8 +22,7 @@ class Fixture(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.d = d = Path(self.tmp.name)
         (d / "scripts").mkdir()
-        for f in ("run.sh", "analyze.py", "scripts/oracle_diff.py"):
-            shutil.copy(ROOT / f, d / f)
+        copy_tools(d)
         (d / "oracles.tsv").write_text("workload\thash\nblock-step\t4355a46b19d348dc\n")
         (d / "workloads" / "block-step").mkdir(parents=True)
         (d / "workloads" / "block-step" / "main.bend").write_text("")
@@ -126,6 +125,28 @@ class Versions(Fixture):
         self.assertEqual([b.split("\t")[:3] for b in builds], [["block-step", "2.1.0", "ok"]])
         self.assertTrue((self.d / "build" / "2.1.0" / "block-step").exists())
         self.assertIn("bend_2.1.0\tbend 2.1.0", (self.d / "results" / "t" / "env.tsv").read_text())
+
+    def test_env_tsv_records_the_machine_and_the_sources(self):
+        self.run_sh()
+        env = dict(l.split("\t", 1) for l in (self.d / "results" / "t" / "env.tsv").read_text().splitlines()[1:])
+        for k in ("governor", "no_turbo", "thp", "bun", "pre_loadavg", "pre_other_processes", "pre_cpu3_sibling",
+                  "busy"):
+            self.assertIn(k, env)
+        self.assertRegex(env["source_99"], r"^binary sha256:[0-9a-f]{16}$")
+        # a source build's wrapper names its tree, whose commit is the source
+        tree = self.d / "src"
+        (tree / "bend2").mkdir(parents=True)
+        subprocess.run(["git", "init", "-q", str(tree)], check=True)
+        subprocess.run(["git", "-C", str(tree), "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false",
+                        "commit", "-q", "--allow-empty", "-m", "x"], check=True)
+        head = subprocess.run(["git", "-C", str(tree), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+        (self.d / "build" / "bin").mkdir(parents=True, exist_ok=True)
+        wrapper = self.d / "build" / "bin" / "99"
+        wrapper.write_text(f'#!/bin/sh\n[ "$1" = version ] && {{ echo bend 2.0.99; exit 0; }}\nexec bun {tree}/bend2/main.ts "$@"\n')
+        wrapper.chmod(0o755)
+        self.run_raw()
+        env = dict(l.split("\t", 1) for l in (self.d / "results" / "t" / "env.tsv").read_text().splitlines()[1:])
+        self.assertEqual(env["source_99"], f"source {head} ({tree})")
 
     def test_39_is_its_fixed_copy_not_the_installed_pin(self):
         # ~/.bend/bin/bend moves to the next pin with setup.sh; ~/.bend-2.0.39 stays 2.0.39

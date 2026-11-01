@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from synth import ROOT
+from synth import ROOT, copy_tools
 
 FAKE_BEND = """#!/bin/sh
 [ "$1" = version ] && echo "bend 2.0.39" && exit 0
@@ -21,8 +21,7 @@ class CheckGpu(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             (d / "scripts").mkdir()
-            for f in ("scripts/check_oracles.sh", "scripts/cuda.sh", "run.sh", "analyze.py"):
-                shutil.copy(ROOT / f, d / f)
+            copy_tools(d, ("scripts/check_oracles.sh", "scripts/cuda.sh"))
             for w in ("w", "v"):
                 (d / "workloads" / w).mkdir(parents=True)
                 (d / "workloads" / w / "main.bend").write_text("")

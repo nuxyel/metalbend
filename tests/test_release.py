@@ -10,7 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from synth import ROOT
+from synth import ROOT, copy_tools
 
 # a fake `bend` for one release: `version` prints it; `main.bend -o <out>` writes a program that prints PRINTS and
 # starts the threads it is asked for after --threads (FAKE_THREADS overrides the count), held long enough to be counted
@@ -66,8 +66,7 @@ class Release(unittest.TestCase):
         # a copy of MetalBend with one workload, its oracle, and the clone of the fake upstream at build/bend
         self.mb = mb = d / "mb"
         (mb / "scripts").mkdir(parents=True)
-        for f in ("release.sh", "run.sh", "analyze.py", "scripts/oracle_diff.py"):
-            shutil.copy(ROOT / f, mb / f)
+        copy_tools(mb, ("release.sh",))
         (mb / "workloads" / "block-step").mkdir(parents=True)
         (mb / "workloads" / "block-step" / "main.bend").write_text("")
         (mb / "data").mkdir()

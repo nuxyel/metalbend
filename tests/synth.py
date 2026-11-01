@@ -1,10 +1,25 @@
 """Synthetic runs.tsv files in run.sh's format, for the tests of analyze.py and scripts/chart.py."""
+import os
+import shutil
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
+
+# what run.sh needs next to it in a copy of the repository
+RUN_TOOLS = ("run.sh", "analyze.py", "scripts/oracle_diff.py", "scripts/preflight.sh", "scripts/packages.py")
+# the preflight's sample of CPU 3's sibling, skipped in the tests
+os.environ.setdefault("PREFLIGHT_SAMPLE", "0")
+
+
+def copy_tools(d, extra=()):
+    """Copies run.sh and the tools it calls (and the files in extra) into d, keeping their paths."""
+    for f in RUN_TOOLS + tuple(extra):
+        (Path(d) / f).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(ROOT / f, Path(d) / f)
+
 
 COLUMNS = ["round", "workload", "bend", "instructions", "cycles", "kinstructions", "kcycles", "seconds", "hash",
            "status", "loadavg", "threads"]
