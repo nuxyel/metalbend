@@ -4,10 +4,11 @@
 #   ROUNDS=7 VERSIONS="38 39" WORKLOADS="gemm-tile8" THREADS="1 16" ./run.sh
 #   VERSIONS="39 2.1.0" BEND_2_1_0=/path/to/bend ./run.sh   # 2.0.x by its last number, later versions in full
 #   GPU=1 ./run.sh              # the GPU targets too (workloads/<name>/gpu.bend, built with CUDA), into gpu.tsv
-# A one-thread run is pinned to CPU 3 (a P-core) and counted by `perf stat` (instructions and cycles of the P-core PMU
-# in user mode; the kernel's share, mostly page faults and transparent huge pages, varies between runs by ~1% of
-# instructions and is recorded apart). A run on more threads is unpinned and measured by its wall time (its
-# instructions are summed over both PMUs; its cycles are not comparable). The runtime's thread option moved between
+# A one-thread run is pinned to CPU 3 (a P-core; CPU=<n> picks another) and counted by `perf stat` (instructions and
+# cycles of that core's PMU in user mode: cpu_core on a hybrid Intel CPU, plain cpu elsewhere, scripts/pmu.sh; the
+# kernel's share, mostly page faults and transparent huge pages, varies between runs by ~1% of instructions and is
+# recorded apart). A run on more threads is unpinned and measured by its wall time (its instructions are summed over
+# every PMU; its cycles are not comparable). The runtime's thread option moved between
 # +RTS and -RTS in 2.0.38. Every round runs every (workload, version, threads) case once, in a fresh order from a
 # seeded shuffle; the C targets run on one thread. One line per run in runs.tsv; the outputs' hashes are compared by
 # analyze.py, which also writes summary.md, and then with oracles.tsv by scripts/oracle_diff.py (oracles.txt; run.sh
@@ -18,6 +19,8 @@
 # run under `nsys profile --trace=cuda` (its cuda_gpu_kern_sum report). One line per run in gpu.tsv, never in runs.tsv.
 set -euo pipefail
 cd "$(dirname "$0")"
+# CPU (3) for the one-thread runs, and the perf PMUs that count them (cpu_core and cpu_atom, or plain cpu)
+. scripts/pmu.sh
 ROUNDS=${ROUNDS:-5}
 VERSIONS=${VERSIONS:-"35 36 37 38 39"}
 WORKLOADS=${WORKLOADS:-$(ls workloads)}
@@ -107,10 +110,12 @@ rts() {
   echo -e "power_profile\t$(powerprofilesctl get 2>/dev/null || echo unknown)"
   echo -e "loadavg_start\t$(cut -d' ' -f1-3 /proc/loadavg)"
   echo -e "metalbend\t$(git rev-parse --short HEAD)$(git diff --quiet || echo -dirty)"
-  echo -e "governor\t$(cat /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor 2>/dev/null || echo unknown)"
+  echo -e "governor\t$(cat /sys/devices/system/cpu/cpu$CPU/cpufreq/scaling_governor 2>/dev/null || echo unknown)"
   echo -e "no_turbo\t$(cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || echo unknown)"
   echo -e "thp\t$(sed 's/.*\[\(.*\)\].*/\1/' /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null || echo unknown)"
   echo -e "bun\t$(bun --version 2>/dev/null || echo none)"
+  echo -e "cpu_pinned\t$CPU"
+  echo -e "pmu\t$PMU_ONE (one thread); $PMU_ALL (more)"
   for v in $VERSIONS; do
     echo -e "bend_$v\t$($(bend_of "$v") version)"
     echo -e "source_$v\t$(bend_source "$(bend_of "$v")")"
@@ -224,14 +229,14 @@ for r in $(seq 1 "$ROUNDS"); do
       [ -f "$OUT/out-$w-$v-gpu.txt" ] || cp "$OUT/.out" "$OUT/out-$w-$v-gpu.txt"
       continue
     fi
-    if [ "$t" = 1 ]; then pin="taskset -c 3"; ev=cpu_core/instructions/u,cpu_core/cycles/u,cpu_core/instructions/k,cpu_core/cycles/k
-    else pin=""; ev=cpu_core/instructions/u,cpu_atom/instructions/u,cpu_core/cycles/u,cpu_core/instructions/k,cpu_core/cycles/k; fi
+    if [ "$t" = 1 ]; then pin="taskset -c $CPU"; ev=$(pmu_events one)
+    else pin=""; ev=$(pmu_events many); fi
     t0=$(date +%s.%N)
     # shellcheck disable=SC2046,SC2086
     if $pin perf stat -x, -o "$OUT/.perf" -e $ev "build/$v/$w" $(rts "$v" "$t") > "$OUT/.out" 2> "$OUT/.err"; then st=ok; else st="exit$?"; fi
     t1=$(date +%s.%N)
     ins=$(awk -F, '$3 ~ /instructions\/u/ && $1 ~ /^[0-9]+$/ {s += $1} END {print s}' "$OUT/.perf")
-    cyc=$(awk -F, '$3 ~ /cpu_core\/cycles\/u/{print $1}' "$OUT/.perf")
+    cyc=$(awk -F, '$3 ~ /cycles\/u/{print $1}' "$OUT/.perf")
     kins=$(awk -F, '$3 ~ /instructions\/k/{print $1}' "$OUT/.perf")
     kcyc=$(awk -F, '$3 ~ /cycles\/k/{print $1}' "$OUT/.perf")
     h=$(sha256sum < "$OUT/.out" | cut -c1-16)

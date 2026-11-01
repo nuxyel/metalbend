@@ -9,7 +9,8 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 # what run.sh needs next to it in a copy of the repository
-RUN_TOOLS = ("run.sh", "analyze.py", "scripts/oracle_diff.py", "scripts/preflight.sh", "scripts/packages.py")
+RUN_TOOLS = ("run.sh", "analyze.py", "scripts/oracle_diff.py", "scripts/preflight.sh", "scripts/packages.py",
+             "scripts/pmu.sh")
 # the preflight's sample of CPU 3's sibling, skipped in the tests
 os.environ.setdefault("PREFLIGHT_SAMPLE", "0")
 
