@@ -93,6 +93,15 @@ class Analyze(unittest.TestCase):
         self.assertIn("- w: 2.0.37 instructions +10.00% against 2.0.39 (noise 1.00%)", f)
         self.assertFalse([l for l in f if "2.0.38" in l])
 
+    def test_versions_in_release_order(self):
+        # 2.0.9 before 2.0.10 (not as strings), and a version after 2.0 named in full, newer than every 2.0.x
+        rows = series("w", "9", BASE) + series("w", "10", BASE) + series("w", "2.1.0", scaled(BASE, 1.1))
+        text = self.summary(rows)
+        self.assertIn("Changes are against Bend 2.1.0;", text)
+        lines = [l for l in text.splitlines() if l.startswith("| w |")]
+        self.assertEqual([l.split(" | ")[1] for l in lines], ["2.0.9", "2.0.10", "2.1.0"])
+        self.assertIn("- w: 2.0.10 instructions -9.09% against 2.1.0 (noise 1.00%)", self.findings(rows))
+
     def test_a_differing_hash_is_a_finding(self):
         rows = series("w", 39, BASE) + series("w", 38, BASE, hash="bbbbbbbbbbbbbbbb")
         self.assertEqual(self.findings(rows),

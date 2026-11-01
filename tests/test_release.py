@@ -117,6 +117,15 @@ class Release(unittest.TestCase):
         self.assertEqual(p.returncode, 1)
         self.assertIn("NO RUNS", p.stdout)
 
+    def test_a_release_after_2_0_is_named_in_full(self):
+        # 2.0.40 is "40" in the run, 2.1.0 is "2.1.0"; neither is an installed release, so their wrappers stay
+        p = self.release("2.1.0", ROUNDS="0")
+        builds = (self.mb / "build" / "rehearsal" / "builds.tsv").read_text().splitlines()[1:]
+        self.assertEqual([b.split("\t")[:3] for b in builds], [["block-step", "40", "ok"], ["block-step", "2.1.0", "ok"]],
+                         p.stdout + p.stderr)
+        self.assertIn("Bend 2.1.0: bend 2.1.0", p.stdout)
+        self.assertTrue((self.mb / "build" / "bin" / "2.1.0").exists())
+
     def test_old_c_and_gpu_binaries_are_cleared(self):
         # a C or GPU target built before (from an older native.c, say) must not be measured as this release's
         for d in ("c", "gpu-39", "gpu-40"):

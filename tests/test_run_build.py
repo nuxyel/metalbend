@@ -17,7 +17,7 @@ LOGGED = FAKE_BEND.replace("out = Path(", "open(__import__('os').environ['FAKE_L
 NATIVE = '#include <stdio.h>\n#include "../../lib/mb.h"\n#include "../other/native.c"\nint main(void) { puts(MSG); return 0; }\n'
 
 
-class Builds(unittest.TestCase):
+class Fixture(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.d = d = Path(self.tmp.name)
@@ -42,19 +42,32 @@ class Builds(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def run_sh(self, **env):
+    def run_raw(self, **env):
         self.log.write_text("")
-        env = dict(os.environ, BEND_99=str(self.fake), VERSIONS="99", WORKLOADS="block-step", THREADS="1",
-                   ROUNDS="0", OUT="results/t", FAKE_LOG=str(self.log), **env)
-        p = subprocess.run(["bash", str(self.d / "run.sh")], env=env, capture_output=True, text=True, timeout=120)
+        env = dict(os.environ, **{"BEND_99": str(self.fake), "VERSIONS": "99", "WORKLOADS": "block-step",
+                                  "THREADS": "1", "ROUNDS": "0", "OUT": "results/t", "FAKE_LOG": str(self.log), **env})
+        return subprocess.run(["bash", str(self.d / "run.sh")], env=env, capture_output=True, text=True, timeout=120)
+
+    def run_sh(self, **env):
+        p = self.run_raw(**env)
         self.assertIn("NO RUNS", p.stdout, p.stderr)
         return len(self.log.read_text().split())
+
+    def fake_reporting(self, path, version):
+        path = self.d / path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(LOGGED.replace("bend 2.0.99", f"bend {version}"))
+        path.chmod(0o755)
+        return path
 
     def later(self, path):
         # a source edited after the build: one minute newer than anything built so far
         t = time.time() + 60
         os.utime(self.d / path, (t, t))
 
+
+
+class Builds(Fixture):
     def test_a_binary_newer_than_its_sources_is_reused(self):
         self.assertEqual(self.run_sh(), 1)
         self.assertEqual(self.run_sh(), 0)
@@ -89,6 +102,42 @@ class Builds(unittest.TestCase):
             self.run_sh()
             self.assertGreater(c.stat().st_mtime_ns, first, src)
             first = c.stat().st_mtime_ns
+
+
+
+class Versions(Fixture):
+    """Each version's compiler is checked to report the release it names before anything is built."""
+
+    def test_a_binary_that_reports_another_version_stops_the_run(self):
+        p = self.run_raw(VERSIONS="98", BEND_98=str(self.fake))
+        self.assertEqual(p.returncode, 2)
+        self.assertIn("reports Bend 2.0.99, not 2.0.98; stopping", p.stderr)
+        self.assertEqual(self.log.read_text(), "")
+
+    def test_an_unknown_version_stops_the_run(self):
+        p = self.run_raw(VERSIONS="77")
+        self.assertEqual(p.returncode, 2)
+        self.assertIn("unknown Bend version 77", p.stderr)
+
+    def test_a_version_after_2_0_is_named_in_full(self):
+        fake = self.fake_reporting("fake-2.1", "2.1.0")
+        self.assertEqual(self.run_sh(VERSIONS="2.1.0", BEND_2_1_0=str(fake)), 1)
+        builds = (self.d / "results" / "t" / "builds.tsv").read_text().splitlines()[1:]
+        self.assertEqual([b.split("\t")[:3] for b in builds], [["block-step", "2.1.0", "ok"]])
+        self.assertTrue((self.d / "build" / "2.1.0" / "block-step").exists())
+        self.assertIn("bend_2.1.0\tbend 2.1.0", (self.d / "results" / "t" / "env.tsv").read_text())
+
+    def test_39_is_its_fixed_copy_not_the_installed_pin(self):
+        # ~/.bend/bin/bend moves to the next pin with setup.sh; ~/.bend-2.0.39 stays 2.0.39
+        self.fake_reporting("home/.bend/bin/bend", "2.0.40")
+        self.fake_reporting("home/.bend-2.0.39/bin/bend", "2.0.39")
+        env = dict(VERSIONS="39", HOME=str(self.d / "home"))
+        self.assertEqual(self.run_sh(**env), 1)
+        self.assertIn("bend_39\tbend 2.0.39", (self.d / "results" / "t" / "env.tsv").read_text())
+        (self.d / "home" / ".bend-2.0.39" / "bin" / "bend").write_text(LOGGED.replace("2.0.99", "2.0.40"))
+        p = self.run_raw(**env)
+        self.assertEqual(p.returncode, 2)
+        self.assertIn("reports Bend 2.0.40, not 2.0.39; stopping", p.stderr)
 
 
 if __name__ == "__main__":
