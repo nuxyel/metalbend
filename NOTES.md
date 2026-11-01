@@ -347,10 +347,11 @@ mains, `performance`, CPU 3's sibling 0-1%; two idle agent sessions (under 3% of
   expected when the GPU printed its `<name>:gpu` oracle, the CPU its `<name>` oracle, and the two lines differ. Any
   other split is still a finding (tests for each case).
 
-## 2026-11-01: four new workloads for 1.1 (bits and oracles; timings at the next idle run)
+## 2026-11-01: four new workloads for 1.0 (bits and oracles; timings at the next idle run)
 
-On a branch of their own: whether they go in 1.0 or 1.1 is Renan's call. Each one has a C target, an oracle line from
-a `ROUNDS=1 THREADS="1 16"` run of 2.0.35-2.0.39 and its C (every hash one), and mutants. Busy machine: no timings.
+Written on a branch of their own for 1.1; Renan put them in 1.0 the same day, so 1.0 has fifteen workloads. Each one
+has a C target, an oracle line from a `ROUNDS=1 THREADS="1 16"` run of 2.0.35-2.0.39 and its C (every hash one), and
+mutants. Busy machine: no timings.
 
 - `softmax-ce-array`: softmax-ce's program on tensor-array 0.1.18.0 (rows read in place since 0.1.17.0). Prints
   softmax-ce's hash, `debeda8b7bc50c1f`, so its C target is softmax-ce's, included.
