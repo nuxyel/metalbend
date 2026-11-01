@@ -307,3 +307,28 @@ count repeated to within 0.0001% between rounds (cycles moved by up to 15%).
   targets included; the probe skipped, since v2.0.39 lacks a888ef27; chart and `report.md` written). Its timings are
   thrown away and the folder deleted. Left: `analyze.py` still lists block-step's GPU output as differing from the
   CPU's, which its `:gpu` oracle already records as expected.
+
+## 2026-11-01: does a busy L3 move Bend's cycle ratio against C? (`probes/l3/`, idle machine)
+
+The question left on 10-27. Bend 2.0.39, one thread on CPU 3, gemm-fork and gemm-tile8 and their C targets, each
+with and without a streaming loop on the E-cores that share the L3 (CPUs 12-19, 64 MB each), alternated rounds,
+`mem_load_retired.l3_miss/u` counted too; 4 blocks of 5 rounds, every hash the oracle. Preflight: load 0.60-1.28,
+mains, `performance`, CPU 3's sibling 0-1%; two idle agent sessions (under 3% of a CPU) the only other processes.
+`scripts/preflight.sh` now reads the load average before its other checks start their processes.
+
+| Bend / C, cycles | idle | 8 streams (67 GB/s) | 2 streams (35 GB/s) | 1 stream |
+|---|---:|---:|---:|---:|
+| gemm-fork / its blocked C | 1.14x | 1.13x (-0.8%) | 1.13x | 1.13x |
+| gemm-fork / gemm-tile8's plain C | 1.13-1.14x | 1.01-1.02x (-10 to -12%) | 1.14x | 1.13x |
+| gemm-tile8 / its plain C | 1.34x | 1.24-1.26x (-6 to -7%) | 1.32x | 1.34x |
+
+- Yes, in the direction guessed: with eight streams the plain C takes 1.21-1.23x its idle cycles, the blocked loops
+  1.09-1.10x and gemm-tile8's Bend 1.14x, so every ratio against the plain C falls 6-12% and the blocked pair moves
+  under 1%. Idle, none of the four misses the L3 (under 0.04 M); with eight streams 0.2-2.6 M.
+- It does not explain the 0.94x: the old pairing's lowest round is 0.994x. What else the 10-27 machine did (compilers
+  on the P-cores at load 5-10) is not reproduced here.
+- For the launch run: one or two streams leave every ratio within 1% and every program within 3% of its idle cycles;
+  eight move a ratio by up to 12% while each of them is a runnable process, which the preflight's load average under
+  2.0 sees on a sustained load. The requirement stands as written (an idle machine, preflight clean); the blocked
+  pair, gemm-fork against its own C, is the ratio that holds even on a loaded L3. The cycle ratio of record for
+  gemm-fork against its blocked C is 1.14x (10-27's busy estimate was 1.15x).
