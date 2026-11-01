@@ -41,6 +41,9 @@ The workloads import my published BendHub packages at pinned versions (`bend-ml-
 | `read-native` | a 16 MB weight file read with `File.read_at` | yes | |
 | `read-binary` | the same file read with `bend-ml-binary-read` | yes (read-native's) | |
 
+Each workload's `README.md` says what it computes, which published package it comes from, how its C target keeps
+the same bits, what its oracle hashes and which mutants it must catch.
+
 On my RTX 4050, `gemm-tile8` and `rmsnorm-step` print the CPU's hashes on the GPU, by design: tensor-gpu keeps
 tensor-array's order of additions, BendTorch's GPU layers compute each number with the CPU layer's own expression, and
 Bend builds the device code without fused multiply-add. `block-step` does not: its losses keep the CPU's bits, but its
@@ -91,13 +94,59 @@ The numbers in `results/` come from one machine: a Core Ultra 7 155H, one thread
 power in the `performance` profile, the machine idle unless the result says otherwise. Instructions repeat between
 rounds to a few hundred in billions; cycles move by a few percent.
 
+## Reading a run
+
+A run's folder (`results/<date>/`, or `OUT`) holds the raw lines (`runs.tsv`, `gpu.tsv`, `builds.tsv`, `env.tsv`;
+`docs/format.md` has every column) and `summary.md`, the file to read first. From the top:
+
+- **A busy mark.** If `scripts/preflight.sh` found the machine busy (load, battery, power profile, other compilers or
+  agents, CPU 3's sibling), the first line says so: the bits still count, the timings are a diagnosis, not a result.
+- **The main table**, one row per workload and Bend version, one thread: the medians of user-mode instructions
+  (`Minstr`) and cycles (`Mcycles`) over the rounds, each with its spread (max - min over the median), the wall time,
+  and the change against the newest version in the run. A change in **bold** is beyond noise: more than 3x the larger
+  spread of the two versions, with floors of 0.1% for instructions and 1% for cycles, from 3 rounds up. Instructions
+  repeat between rounds almost exactly, so they show a compiler change first; cycles are what the change costs on this
+  core, and move by a few percent. The last column is the output's hash.
+- **Against the C targets**: the newest version's medians over the C target's, in instructions, cycles and wall time.
+  1.33x in cycles means Bend's program takes 1.33 times the cycles of the handwritten C for the same bits; "same
+  output" must say yes.
+- **Threads** (with `THREADS="1 16"`): the wall-time speedup at each thread count over one thread. Every thread count
+  must print the same bytes.
+- **GPU targets** (with `GPU=1`): wall time and the kernels' time on the device, and whether the GPU prints the CPU's
+  bytes. `block-step` does not, by design; its row says so, as its `block-step:gpu` oracle records.
+- **Machine**: `env.tsv`'s state (CPU, kernel, pinned CPU and PMU, power, governor, load at start and end).
+- **Beyond noise or differing outputs**: every bold change, and every hash that differs from the newest version's,
+  between rounds, between thread counts, or from its C or GPU target. "None." is a run where nothing moved.
+
+`oracles.txt` then compares every case with `oracles.tsv`; a line there is a finding to explain in `NOTES.md`, and
+`out-<workload>-<version>-t<threads>.txt` keeps the output of one run of each case, to read what changed.
+
+## On another machine
+
+The scripts were written on one machine (a Core Ultra 7 155H on Linux) and say where they depend on it:
+
+- **perf events.** `scripts/pmu.sh` picks the PMU: `cpu_core` (and `cpu_atom` for runs on more threads) on a hybrid
+  Intel CPU, plain `cpu` elsewhere (AMD, older Intel); `env.tsv` records it (`pmu`). `perf_event_paranoid` must be at
+  most 1 (`sudo sysctl kernel.perf_event_paranoid=1`), since the kernel-mode counts are read too. In a virtual machine
+  or a CI runner the counters are often missing: `make check` and `make test` need none.
+- **The pinned CPU.** One-thread runs are pinned to CPU 3, a P-core here; `CPU=<n> ./run.sh` picks another (a fast
+  core whose SMT sibling is idle; the preflight samples that sibling, `pre_cpu<n>_sibling`). The probes take the same
+  `CPU`. `probes/l3/` also needs E-cores that share the L3, so it runs on a hybrid Intel CPU only.
+- **Where each Bend version is.** `run.sh` looks for version `<n>` at `build/bin/<n>` (`release.sh`'s source builds),
+  then in `BEND_<n>` (dots as underscores: `BEND_39`, `BEND_2_1_0`), then at the paths where my machine keeps each
+  release (`~/.bend-2.0.39/bin/bend` and so on, `bend_path` in `run.sh`). On another machine set `BEND_<n>` for each
+  version, or build them with `release.sh`. Every version must report the release it names, or the run stops.
+- **The rest.** `env.tsv` reads mains power from `/sys/class/power_supply/ADP1` and the power profile from
+  `powerprofilesctl`; both say `unknown` where they are missing, and the preflight checks every `Mains` supply.
+  `GPU=1` needs CUDA (`CUDA_HOME`) and an NVIDIA GPU.
+
 ## Checks
 
 ```sh
 make setup     # Bend 2.0.39 (checked by SHA256), then clang and Python 3 checked
 make check     # every workload on 1 and 16 threads and every C target, against oracles.tsv
 make check-gpu # every GPU target on the GPU and with --gpu off on 1 and 16 threads; skips if there is no GPU
-make test      # analyze.py, scripts/chart.py, oracle_diff.py, run.sh's guard, the GPU lane's skip, release.sh on a fake upstream
+make test      # analyze.py, scripts/chart.py, oracle_diff.py, run.sh's guard and PMU choice, the GPU lane's skip, release.sh on a fake upstream
 make laws      # the ten laws (with --verdict) and their 22 mutants, each refused
 make mutate    # break the corpus and the tools on purpose; every mutant must be caught
 ```
