@@ -39,6 +39,10 @@ LABELS = {
     "adamw": "AdamW optimizer step",
     "read-native": "16 MB file read, built-in",
     "read-binary": "16 MB file read, bend-ml-binary-read",
+    "softmax-ce-array": "softmax and cross-entropy, rows in place",
+    "mnist-fork": "MNIST training step, parallel blocks",
+    "read-bf16": "14 MB BF16 safetensors read",
+    "bpe-encode": "BPE tokenizer, train and encode",
 }
 NOTES = {
     "gemm-tile8": "a sequential loop by design",

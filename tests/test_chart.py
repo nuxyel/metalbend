@@ -88,7 +88,7 @@ class Chart(unittest.TestCase):
             sys.argv = argv
         return (self.root / "out.svg").read_text(), out.getvalue()
 
-    def test_a_launch_run_eleven_c_targets_and_two_versions(self):
+    def test_a_launch_run_fifteen_c_targets_and_two_versions(self):
         # the launch run's shape: every workload with a C target, the old and the new release, 1 and 16 threads;
         # the new release's medians only, and the CPU named from env.tsv
         rows = []
@@ -98,10 +98,10 @@ class Chart(unittest.TestCase):
                 rows += series(w, v, [10] * 3, cyc=[1] * 3, sec=[0.5] * 3, threads=16)
             rows += series(w, "c", [5] * 3, cyc=[1000] * 3)
         svg, out = self.draw("40", rows, env="Intel(R) Core(TM) Ultra 7 155H")
-        self.assertEqual(len(chart.LABELS), 11)
-        self.assertEqual(out.count("C ratio"), 11)
-        self.assertEqual(out.count("16 thr"), 11)
-        self.assertEqual(svg.count('<rect x="290"'), 22)
+        self.assertEqual(len(chart.LABELS), 15)
+        self.assertEqual(out.count("C ratio"), 15)
+        self.assertEqual(out.count("16 thr"), 15)
+        self.assertEqual(svg.count('<rect x="290"'), 30)
         self.assertIn("C ratio  adamw           2.00x", out)       # 2.0.40's 2x, not 2.0.39's 6x
         self.assertIn("16 thr   softmax-ce      ", out)
         self.assertIn("How far Bend 2.0.40 is from handwritten C", svg)
