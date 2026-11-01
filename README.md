@@ -2,8 +2,8 @@
 
 A corpus of real machine-learning workloads for Bend 2's compiler, run on every Bend release. I cut the workloads
 from my three Bend projects (bend-ml, llama.bend and BendTorch): matrix products, a banded matrix-vector product,
-attention, normalization, an optimizer step, a training step, file reads. Each one is checked by its exact output and
-timed by hardware counters, so a release that changes a workload's speed or its bits shows up as a number.
+attention, normalization, an optimizer step, training steps, file reads, a tokenizer. Each one is checked by its exact
+output and timed by hardware counters, so a release that changes a workload's speed or its bits shows up as a number.
 
 Renan Vinícius (@nuxyel).
 
@@ -40,6 +40,10 @@ The workloads import my published BendHub packages at pinned versions (`bend-ml-
 | `adamw` | BendTorch's AdamW update over 28.3 M weights | yes | |
 | `read-native` | a 16 MB weight file read with `File.read_at` | yes | |
 | `read-binary` | the same file read with `bend-ml-binary-read` | yes (read-native's) | |
+| `softmax-ce-array` | `softmax-ce` on tensor-array 0.1.18.0, which reads each row in place | yes (softmax-ce's) | |
+| `mnist-fork` | `mnist-step` with its products through tensor-fork 0.1.5.0 | yes (mnist-step's) | |
+| `read-bf16` | two SmolLM2-135M layers read as BF16 from a safetensors file with bendtorch-load | yes | |
+| `bpe-encode` | bend-ml-bpe-tokenizer: 256 merges trained, 32,768 words encoded to token ids | yes | |
 
 Each workload's `README.md` says what it computes, which published package it comes from, how its C target keeps
 the same bits, what its oracle hashes and which mutants it must catch.
@@ -153,8 +157,8 @@ make mutate    # break the corpus and the tools on purpose; every mutant must be
 
 `oracles.tsv` holds each workload's hash, as `run.sh` records it, from a run where every version and every C target
 printed it. CI runs all but `make check-gpu` on every push, bits only (GitHub's runners cannot count with `perf`, and
-have no GPU). `make check-gpu` is local: with no toolkit or no GPU it says why and passes. `make mutate` has 57
-mutants: 52 caught, and 5 that survive with their reason written next to them (four compute the same bits, one changes
+have no GPU). `make check-gpu` is local: with no toolkit or no GPU it says why and passes. `make mutate` has 70
+mutants: 64 caught, and 6 that survive with their reason written next to them (five compute the same bits, one changes
 what no run reaches). The three block workloads print a hash of their final weights and AdamW moments after the
 losses, so one rounding changed inside a layer (SiLU's, say) is caught even when every loss keeps its bits.
 

@@ -16,7 +16,8 @@ A folder `workloads/<name>/`; `run.sh`, `release.sh` and `make check` pick up ev
 Rules for `main.bend`:
 
 - It imports my published BendHub packages at exact versions, and `../../lib/mb.bend` for its inputs and its hash.
-- Its inputs are deterministic: `lib/mb.bend`'s values, or `data/` files made by `lib/gen_dense.py` (`make data`).
+- Its inputs are deterministic: `lib/mb.bend`'s values, or `data/` files made by `lib/gen_dense.py` and
+  `lib/gen_bf16.py` (`make data`).
 - It prints its results as text and ends; whatever it prints is its output. It takes no arguments, so a run differs
   only by the Bend version, the thread count and the target.
 - Its output must not depend on the thread count. Bend promises the same bits on any number of threads, and the
