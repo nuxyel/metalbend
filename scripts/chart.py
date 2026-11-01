@@ -2,6 +2,7 @@
 
     python3 -I scripts/chart.py                                  # docs/results-2.0.39.svg, from the runs of record
     python3 -I scripts/chart.py 40 results/<date>-2.0.40         # docs/results-2.0.40.svg, from release.sh's run
+    python3 -I scripts/chart.py 2.1.0 results/<date>-2.1.0       # docs/results-2.1.0.svg (from 2.1 on, the full name)
 
 Two panels, both on one Bend version:
 - top: Bend / C in user-mode cycles on one thread, for the six workloads with a C target (median over the rounds of
@@ -46,6 +47,11 @@ NOTES = {
     "read-native": "slower: starting the workers costs more",
     "read-binary": "slower: starting the workers costs more",
 }
+
+
+def full(v):
+    """A version's full name: a 2.0.x release is named by its last number in a run ("39"), later ones in full."""
+    return f"2.0.{v}" if v.isdigit() else v
 
 
 def runs(name):
@@ -144,12 +150,12 @@ def main():
         VERSION, run = sys.argv[1], Path(sys.argv[2]).name
         THREAD_RUN = run
         C_RUNS = {w: run for w in sorted({r["workload"] for r in runs(run) if r["bend"] == "c"})}
-    out_path = ROOT / "docs" / f"results-2.0.{VERSION}.svg"
+    out_path = ROOT / "docs" / f"results-{full(VERSION)}.svg"
     ratios = c_ratios()
     speed = speedups()
     parts = []
     y = 16
-    p, h = panel(y, f"How far Bend 2.0.{VERSION} is from handwritten C",
+    p, h = panel(y, f"How far Bend {full(VERSION)} is from handwritten C",
                  "CPU cycles of Bend's program per cycle of a C version that prints the same bits; one thread. "
                  "Lower is better.",
                  sorted(ratios.items(), key=lambda kv: kv[1]), 6, range(0, 7), "1x = as fast as C",
@@ -198,7 +204,7 @@ def main():
   }"""
     svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{height:.0f}" viewBox="0 0 {W} {height:.0f}" '
            f'role="img" aria-labelledby="t">',
-           f'<title id="t">Bend 2.0.{VERSION} against handwritten C, and its speedups on 16 threads</title>',
+           f'<title id="t">Bend {full(VERSION)} against handwritten C, and its speedups on 16 threads</title>',
            f"<style>{style}\n</style>", f'<rect class="bg" width="{W}" height="{height:.0f}"/>'] + parts + ["</svg>"]
     out_path.write_text("\n".join(svg) + "\n")
     print(f"{out_path.relative_to(ROOT)}")

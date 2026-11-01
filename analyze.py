@@ -20,6 +20,19 @@ from collections import defaultdict
 from pathlib import Path
 
 
+def full(v):
+    """A version's full name: a 2.0.x release is named by its last number in a run ("39"), later ones in full."""
+    return f"2.0.{v}" if v.isdigit() else v
+
+
+def vkey(v):
+    """Release order: 2.0.38 < 2.0.39 < 2.1.0; a name that is not a version (main) after every release."""
+    try:
+        return (0, tuple(int(x) for x in full(v).split(".")))
+    except ValueError:
+        return (1, (v,))
+
+
 def spread(xs):
     m = statistics.median(xs)
     return (max(xs) - min(xs)) / m if m else 0.0
@@ -31,7 +44,7 @@ def gpu_table(path, cell, findings):
         rows = list(csv.DictReader(f, delimiter="\t"))
     g = defaultdict(lambda: {"sec": [], "kms": [], "nk": [], "hash": set(), "bad": 0})
     for r in rows:
-        c = g[(r["workload"], int(r["bend"]))]
+        c = g[(r["workload"], r["bend"])]
         if r["status"] != "ok":
             c["bad"] += 1
             continue
@@ -45,18 +58,18 @@ def gpu_table(path, cell, findings):
              "|---|---|---:|---:|---:|---:|---:|---|---|"]
     if not g:
         return lines + ["", "No GPU runs in gpu.tsv."]
-    base = max(v for _, v in g)
-    for w, v in sorted(g):
+    base = max((v for _, v in g), key=vkey)
+    for w, v in sorted(g, key=lambda wv: (wv[0], vkey(wv[1]))):
         c = g[(w, v)]
         if not c["sec"]:
-            lines.append(f"| {w} | 2.0.{v} | - | - | - | - | - | failed | - |")
+            lines.append(f"| {w} | {full(v)} | - | - | - | - | - | failed | - |")
             continue
         hs = ", ".join(sorted(c["hash"]))
         if len(c["hash"]) > 1:
-            findings.append(f"- {w}: the GPU target on 2.0.{v} printed {len(c['hash'])} different outputs across its rounds")
+            findings.append(f"- {w}: the GPU target on {full(v)} printed {len(c['hash'])} different outputs across its rounds")
         b = g.get((w, base))
         if v != base and b and b["hash"] and c["hash"] != b["hash"]:
-            findings.append(f"- {w}: the GPU target's output on 2.0.{v} differs from 2.0.{base}'s ({hs} against "
+            findings.append(f"- {w}: the GPU target's output on {full(v)} differs from {full(base)}'s ({hs} against "
                             f"{', '.join(sorted(b['hash']))})")
         cpu = cell.get((w, v))
         if not cpu or not cpu["hash"]:
@@ -65,10 +78,10 @@ def gpu_table(path, cell, findings):
             same = "yes"
         else:
             same = "**no**"
-            findings.append(f"- {w}: the GPU target's output differs from the CPU's on 2.0.{v}")
+            findings.append(f"- {w}: the GPU target's output differs from the CPU's on {full(v)}")
         kms = (f"{statistics.median(c['kms']):.1f} | {spread(c['kms']) * 100:.2f}% | {statistics.median(c['nk']):.0f}"
                if c["kms"] else "- | - | -")
-        lines.append(f"| {w} | 2.0.{v} | {statistics.median(c['sec']):.3f} | {spread(c['sec']) * 100:.2f}% | {kms} | "
+        lines.append(f"| {w} | {full(v)} | {statistics.median(c['sec']):.3f} | {spread(c['sec']) * 100:.2f}% | {kms} | "
                      f"{hs}{' (+' + str(c['bad']) + ' failed)' if c['bad'] else ''} | {same} |")
     return lines
 
@@ -82,7 +95,7 @@ def main(out):
     runs = [r for r in allruns if r["threads"] == 1]
     cell = defaultdict(lambda: {"ins": [], "cyc": [], "sec": [], "hash": set(), "bad": 0})
     for r in runs:
-        c = cell[(r["workload"], r["bend"] if r["bend"] == "c" else int(r["bend"]))]
+        c = cell[(r["workload"], r["bend"])]
         if r["status"] != "ok" or not r["instructions"].isdigit():
             c["bad"] += 1
             continue
@@ -97,10 +110,10 @@ def main(out):
         print(f"{out.name}: no one-thread Bend runs in runs.tsv")
         return
     workloads = sorted({w for w, _ in cell})
-    versions = sorted({v for _, v in cell})
+    versions = sorted({v for _, v in cell}, key=vkey)
     base = versions[-1]
     lines = [f"# {out.name}", "", f"Rounds per pair: {max(len(c['ins']) + c['bad'] for c in cell.values())}. "
-             f"Changes are against Bend 2.0.{base}; **bold** is beyond noise (more than 3x the larger spread, floors 0.1% and 1%).", ""]
+             f"Changes are against Bend {full(base)}; **bold** is beyond noise (more than 3x the larger spread, floors 0.1% and 1%).", ""]
     lines += ["| workload | bend | Minstr | spread | Mcycles | spread | s | Δ instr | Δ cycles | hash |",
               "|---|---|---:|---:|---:|---:|---:|---:|---:|---|"]
     findings = []
@@ -110,7 +123,7 @@ def main(out):
         for v in versions:
             c = cell.get((w, v))
             if not c or not c["ins"]:
-                lines.append(f"| {w} | 2.0.{v} | - | - | - | - | - | - | - | {'no build' if not c else 'failed'} |")
+                lines.append(f"| {w} | {full(v)} | - | - | - | - | - | - | - | {'no build' if not c else 'failed'} |")
                 continue
             mi, mc, ms = (statistics.median(c[k]) for k in ("ins", "cyc", "sec"))
             si, sc = spread(c["ins"]), spread(c["cyc"])
@@ -123,20 +136,20 @@ def main(out):
                     txt = f"{d * 100:+.2f}%"
                     if enough and abs(d) > 3 * noise:
                         txt = f"**{txt}**"
-                        findings.append(f"- {w}: 2.0.{v} {name} {d * 100:+.2f}% against 2.0.{base} (noise {noise * 100:.2f}%)")
+                        findings.append(f"- {w}: {full(v)} {name} {d * 100:+.2f}% against {full(base)} (noise {noise * 100:.2f}%)")
                     if name == "instructions":
                         di = txt
                     else:
                         dc = txt
             hs = ", ".join(sorted(c["hash"]))
             if len(c["hash"]) > 1:
-                findings.append(f"- {w}: 2.0.{v} printed {len(c['hash'])} different outputs across its rounds")
+                findings.append(f"- {w}: {full(v)} printed {len(c['hash'])} different outputs across its rounds")
             elif bhash and hs != bhash:
-                findings.append(f"- {w}: 2.0.{v}'s output differs from 2.0.{base}'s ({hs} against {bhash})")
-            lines.append(f"| {w} | 2.0.{v} | {mi / 1e6:.1f} | {si * 100:.2f}% | {mc / 1e6:.1f} | {sc * 100:.2f}% | "
+                findings.append(f"- {w}: {full(v)}'s output differs from {full(base)}'s ({hs} against {bhash})")
+            lines.append(f"| {w} | {full(v)} | {mi / 1e6:.1f} | {si * 100:.2f}% | {mc / 1e6:.1f} | {sc * 100:.2f}% | "
                          f"{ms:.3f} | {di} | {dc} | {hs}{' (+' + str(c['bad']) + ' failed)' if c['bad'] else ''} |")
     if native:
-        lines += ["", f"## Against the C targets (Bend 2.0.{base} / C, medians)", "",
+        lines += ["", f"## Against the C targets (Bend {full(base)} / C, medians)", "",
                   "| workload | C Minstr | C Mcycles | C s | instr ratio | cycles ratio | time ratio | same output |",
                   "|---|---:|---:|---:|---:|---:|---:|---|"]
         for w, c in sorted(native.items()):
@@ -146,7 +159,7 @@ def main(out):
             mi, mc, ms = (statistics.median(c[k]) for k in ("ins", "cyc", "sec"))
             same = c["hash"] == bc["hash"] and len(c["hash"]) == 1
             if not same:
-                findings.append(f"- {w}: the C target's output differs from Bend 2.0.{base}'s")
+                findings.append(f"- {w}: the C target's output differs from Bend {full(base)}'s")
             lines.append(f"| {w} | {mi / 1e6:.1f} | {mc / 1e6:.1f} | {ms:.3f} | "
                          f"{statistics.median(bc['ins']) / mi:.2f}x | {statistics.median(bc['cyc']) / mc:.2f}x | "
                          f"{statistics.median(bc['sec']) / ms:.2f}x | {'yes' if same else '**no**'} |")
@@ -157,8 +170,8 @@ def main(out):
         for r in allruns:
             if r["bend"] == "c" or r["status"] != "ok":
                 continue
-            sec[(r["workload"], int(r["bend"]), r["threads"])].append(float(r["seconds"]))
-            hashes[(r["workload"], int(r["bend"]))].add(r["hash"])
+            sec[(r["workload"], r["bend"], r["threads"])].append(float(r["seconds"]))
+            hashes[(r["workload"], r["bend"])].add(r["hash"])
         head = " | ".join(f"{t} threads s | speedup" for t in multi)
         lines += ["", "## Threads (wall time, medians; the output must be the same at every thread count)", "",
                   f"| workload | bend | 1 thread s | {head} | same output |",
@@ -175,8 +188,8 @@ def main(out):
                     cols += [f"{statistics.median(xs):.3f}", f"{m1 / statistics.median(xs):.2f}x"] if xs else ["-", "-"]
                 same = len(hashes[(w, v)]) == 1
                 if not same:
-                    findings.append(f"- {w}: 2.0.{v} prints different outputs across thread counts")
-                lines.append(f"| {w} | 2.0.{v} | {m1:.3f} | " + " | ".join(cols) + f" | {'yes' if same else '**no**'} |")
+                    findings.append(f"- {w}: {full(v)} prints different outputs across thread counts")
+                lines.append(f"| {w} | {full(v)} | {m1:.3f} | " + " | ".join(cols) + f" | {'yes' if same else '**no**'} |")
     gpu = out / "gpu.tsv"
     if gpu.exists():
         lines += gpu_table(gpu, cell, findings)
