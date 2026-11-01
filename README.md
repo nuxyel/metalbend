@@ -70,6 +70,8 @@ GPU=1 VERSIONS=39 ./run.sh                   # the GPU targets too, into gpu.tsv
 ./release.sh 2.0.40                          # a new release against the one before it
 ```
 
+- `read-binary` and `read-bf16` do not build on 2.0.35 (their package's C effect does not compile against that
+  runtime); every other workload builds on 2.0.35-2.0.39.
 - `run.sh` builds each workload with each Bend version and its C target, then runs rounds in a fresh seeded order.
   It writes one line per run to `runs.tsv`, the machine's state to `env.tsv`, and a `summary.md` (from `analyze.py`)
   that marks what moved beyond noise (more than 3x the larger spread between rounds) and any output that differs.
