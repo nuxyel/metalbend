@@ -21,19 +21,21 @@ def scaled(xs, f):
 
 
 class Analyze(unittest.TestCase):
-    def summary(self, rows, gpu=None, env=None):
+    def summary(self, rows, gpu=None, env=None, oracles=None):
         with tempfile.TemporaryDirectory() as d:
             out = write(Path(d) / "run", rows)
+            path = Path(d) / "oracles.tsv"
+            path.write_text("workload\thash\n" + "".join(f"{k}\t{v}\n" for k, v in (oracles or {}).items()))
             if gpu is not None:
                 write_gpu(out, gpu)
             if env is not None:
                 (out / "env.tsv").write_text("key\tvalue\n" + "".join(f"{k}\t{v}\n" for k, v in env.items()))
             with contextlib.redirect_stdout(io.StringIO()):
-                analyze.main(out)
+                analyze.main(out, path)
             return (out / "summary.md").read_text()
 
-    def findings(self, rows, gpu=None):
-        text = self.summary(rows, gpu)
+    def findings(self, rows, gpu=None, oracles=None):
+        text = self.summary(rows, gpu, oracles=oracles)
         return text.split("## Beyond noise or differing outputs\n", 1)[1].strip().splitlines()
 
     def table_row(self, text, workload, bend):
@@ -169,6 +171,26 @@ class Analyze(unittest.TestCase):
         self.assertIn("| **no** |", self.gpu_section(self.summary(series("w", 39, BASE), gpu)))
         self.assertEqual(self.findings(series("w", 39, BASE), gpu),
                          ["- w: the GPU target's output differs from the CPU's on 2.0.39"])
+
+    def test_a_gpu_output_that_oracles_tsv_records_apart_is_expected(self):
+        # block-step: the device's float exp gives the GPU target its own oracle, and the CPU keeps its own
+        gpu = [gpu_row(1, "w", 39, 2.0, 50.0, hash="e" * 16)]
+        split = {"w": "a" * 16, "w:gpu": "e" * 16}
+        self.assertIn("| no, as oracles.tsv records (w:gpu) |", self.gpu_section(self.summary(series("w", 39, BASE), gpu,
+                                                                                            oracles=split)))
+        self.assertEqual(self.findings(series("w", 39, BASE), gpu, split), ["None."])
+
+    def test_a_gpu_output_other_than_its_recorded_split_is_a_finding(self):
+        # the GPU's hash is not its :gpu line, or the CPU's is not its own line, or the lines agree: still a finding
+        f = ["- w: the GPU target's output differs from the CPU's on 2.0.39"]
+        for name, gpu_hash, cpu_hash, split in (
+                ("another GPU hash", "f" * 16, "a" * 16, {"w": "a" * 16, "w:gpu": "e" * 16}),
+                ("another CPU hash", "e" * 16, "b" * 16, {"w": "a" * 16, "w:gpu": "e" * 16}),
+                ("no :gpu line", "e" * 16, "a" * 16, {"w": "a" * 16}),
+                ("the lines agree", "e" * 16, "a" * 16, {"w": "a" * 16, "w:gpu": "a" * 16})):
+            with self.subTest(name):
+                gpu = [gpu_row(1, "w", 39, 2.0, 50.0, hash=gpu_hash)]
+                self.assertEqual(self.findings(series("w", 39, BASE, hash=cpu_hash), gpu, split), f)
 
     def test_gpu_rounds_that_print_two_outputs_are_a_finding(self):
         gpu = [gpu_row(1, "w", 39, 2.0, 50.0), gpu_row(2, "w", 39, 2.0, 50.0, hash="e" * 16)]
