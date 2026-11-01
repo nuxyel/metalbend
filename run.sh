@@ -2,6 +2,7 @@
 # Builds every workload with every Bend version (and its C target, if it has one), then measures them in rounds:
 #   ./run.sh                    # 5 rounds into results/<today>/
 #   ROUNDS=7 VERSIONS="38 39" WORKLOADS="gemm-tile8" THREADS="1 16" ./run.sh
+#   VERSIONS="39 2.1.0" BEND_2_1_0=/path/to/bend ./run.sh   # 2.0.x by its last number, later versions in full
 #   GPU=1 ./run.sh              # the GPU targets too (workloads/<name>/gpu.bend, built with CUDA), into gpu.tsv
 # A one-thread run is pinned to CPU 3 (a P-core) and counted by `perf stat` (instructions and cycles of the P-core PMU
 # in user mode; the kernel's share, mostly page faults and transparent huge pages, varies between runs by ~1% of
@@ -36,21 +37,37 @@ if [ "$GPU" = 1 ]; then
   if [ "${NSYS:-1}" = 1 ] && command -v nsys > /dev/null; then NSYS=1; else NSYS=0; fi
 fi
 
-# a version is its last number; release.sh puts source builds of new ones at build/bin/<n>, and BEND_<n> names an
-# installed binary (BEND_39=~/.bend/bin/bend); the paths below are where my machine keeps them
-bend_of() {
+# a version's name: a 2.0.x release by its last number ("39"), from 2.1 on by its full number ("2.1.0"); a name that
+# is not a version ("main", a source build) is taken as it is
+full() { if [[ $1 =~ ^[0-9]+$ ]]; then echo "2.0.$1"; else echo "$1"; fi; }
+# where a version's compiler is: release.sh puts source builds at build/bin/<name>, and BEND_<name> (dots as
+# underscores: BEND_2_1_0) names any binary; the installed releases below are where my machine keeps them, each a fixed
+# copy that nothing installs over (39 is not ~/.bend/bin/bend, which the next setup.sh moves to the next pin)
+bend_path() {
   if [ -x "build/bin/$1" ]; then echo "$PWD/build/bin/$1"; return; fi
-  local var=BEND_$1
+  local var=BEND_${1//./_}
   if [ -n "${!var:-}" ]; then echo "${!var}"; return; fi
   case $1 in
     35) echo "$HOME/.cache/bend-2.0.35/bend" ;;
     36) echo "$HOME/.cache/bend-2.0.36/bend" ;;
     37) echo "$HOME/.bend-2.0.37/bin/bend" ;;
     38) echo "$HOME/.bend-2.0.38/bin/bend" ;;
-    39) echo "$HOME/.bend/bin/bend" ;;
-    *) echo "unknown Bend version $1" >&2; exit 2 ;;
+    39) echo "$HOME/.bend-2.0.39/bin/bend" ;;
+    *) return 1 ;;
   esac
 }
+# every version resolved once, before anything runs, and checked to report the release it names, so a binary that
+# another install replaced is never measured under the old name; a name that is not a version is not checked
+declare -A BENDS
+for v in $VERSIONS; do
+  b=$(bend_path "$v") || { echo "unknown Bend version $v (BEND_${v//./_} names its binary)" >&2; exit 2; }
+  if [[ $v =~ ^[0-9]+$|^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    got=$("$b" version 2>/dev/null | awk '{print $NF}') || true
+    [ "$got" = "$(full "$v")" ] || { echo "$b reports Bend ${got:-nothing}, not $(full "$v"); stopping" >&2; exit 2; }
+  fi
+  BENDS[$v]=$b
+done
+bend_of() { echo "${BENDS[$1]}"; }
 # whether binary $1 must be built again: it is missing, REBUILD=1, or any of its sources ($2...) is newer than it (a
 # binary left from an older main.bend, native.c, lib/ file or compiler would otherwise be measured as the new one)
 stale() {
@@ -65,7 +82,11 @@ c_sources() {
   sed -n 's|^#include "\.\./\([^."][^"]*\)"|workloads/\1|p' "workloads/$1/native.c"
 }
 # the runtime's thread option ($2 threads): between +RTS and -RTS from 2.0.38 on (bendlang/bend#1530), bare before
-rts() { if [ "$1" = c ]; then return; elif [ "$1" -ge 38 ]; then echo "+RTS --threads $2 -RTS"; else echo "--threads $2"; fi; }
+rts() {
+  if [ "$1" = c ]; then return
+  elif [[ $1 =~ ^[0-9]+$ ]] && [ "$1" -lt 38 ]; then echo "--threads $2"
+  else echo "+RTS --threads $2 -RTS"; fi
+}
 
 # ---- the machine, recorded before anything runs ----
 {
@@ -92,8 +113,7 @@ for w in $WORKLOADS; do
   for v in $VERSIONS; do
     bin=build/$v/$w
     mkdir -p "build/$v"
-    # resolved here, not inside the subshell: after its cd, bend_of would miss build/bin/<n> and fall back to an
-    # installed release (or none, for a version newer than the installed ones)
+    # resolved here, not inside the subshell: after its cd, a relative path would miss
     bend=$(bend_of "$v")
     stale "$bin" "workloads/$w/main.bend" lib/* "$(readlink -f "$bend")" || continue
     t0=$(date +%s.%N)
@@ -150,7 +170,7 @@ for v in $VERSIONS; do
     wait "$pid" || true
     echo -e "$v\t$t\t$peak" >> "$OUT/threads.tsv"
     if [ "$t" = 1 ]; then ok=$([ "$peak" = 1 ] && echo y || echo n); else ok=$([ "$peak" -ge "$t" ] && [ "$peak" -le $((t + 2)) ] && echo y || echo n); fi
-    [ "$ok" = y ] || { echo "Bend 2.0.$v ran on $peak threads with the option for $t; stopping" >&2; exit 1; }
+    [ "$ok" = y ] || { echo "Bend $(full "$v") ran on $peak threads with the option for $t; stopping" >&2; exit 1; }
   done
 done
 
