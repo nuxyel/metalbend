@@ -1,0 +1,78 @@
+name: Bend main
+
+# A preview of the next release, separate from CI and blocking nothing: Bend built from bendlang/bend's main
+# (scripts/bend_main.sh), then the bits check, every workload on 1 and 16 threads and every C target against
+# oracles.tsv. A hash that moves on main is a finding for the next release, not a failure of MetalBend: the step's
+# result goes to the run's summary and a warning, and the run stays green.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "bendlang/bend ref to build (a branch of origin, a tag or a commit)"
+        default: main
+  schedule:
+    - cron: "17 6 * * 3"   # weekly, on devel
+
+concurrency:
+  group: bend-main-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  main:
+    name: bits on Bend main
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'devel' || '' }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: clang
+        run: |
+          command -v clang || { sudo apt-get update -q && sudo apt-get install -y -q clang; }
+          clang --version | head -1
+
+      - name: Data
+        run: make data
+
+      - name: Bend from bendlang/bend
+        env:
+          REF: ${{ github.event.inputs.ref || 'main' }}
+        run: scripts/bend_main.sh "$REF"
+
+      - name: Check on Bend main (not blocking)
+        id: check
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          BEND=build/bin/main ANY_BEND=1 make check 2>&1 | tee check.log
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Bend main $(cut -c1-8 build/bin/main.commit 2>/dev/null || echo '?')"
+            echo
+            echo "make check: ${{ steps.check.outcome }}"
+            echo
+            grep '^FAIL' check.log || true
+            tail -1 check.log
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.check.outcome }}" != success ]; then
+            echo "::warning::a hash moved or a build failed on Bend main $(cat build/bin/main.commit 2>/dev/null); see the summary"
+          fi
+
+      - name: Keep the log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bend-main-log
+          path: check.log
