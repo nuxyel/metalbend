@@ -9,8 +9,9 @@ PY := python3 -I
 setup:            ## install the pinned Bend (2.0.39) and Lean (4.34.0) if missing; check clang and Python 3
 	scripts/setup.sh
 
-data:             ## data/dense.bin, the dense-read workloads' input (deterministic)
+data:             ## data/dense.bin and data/bf16.safetensors, the read workloads' inputs (deterministic)
 	$(PY) lib/gen_dense.py
+	$(PY) lib/gen_bf16.py
 
 check:            ## build every workload (1 and 16 threads) and every native.c, fail on a hash that is not its oracle
 	scripts/check_oracles.sh

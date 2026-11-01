@@ -32,6 +32,8 @@ mkdir -p "$OUT" build
 rm -f "$OUT/oracles.txt"
 # the dense-read workloads' input, made once
 [ -f data/dense.bin ] || python3 -I lib/gen_dense.py
+# read-bf16's safetensors file, made once too
+[ ! -d workloads/read-bf16 ] || [ -f data/bf16.safetensors ] || python3 -I lib/gen_bf16.py
 # the GPU lane, asked for: a toolkit and a device, or stop (scripts/cuda.sh)
 if [ "$GPU" = 1 ]; then
   . scripts/cuda.sh

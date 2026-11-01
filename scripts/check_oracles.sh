@@ -52,6 +52,8 @@ if has bend || has gpu; then
 fi
 # the dense-read workloads' input, deterministic (lib/gen_dense.py)
 [ -f data/dense.bin ] || python3 -I lib/gen_dense.py
+# read-bf16's safetensors file (lib/gen_bf16.py)
+[ ! -d workloads/read-bf16 ] || [ -f data/bf16.safetensors ] || python3 -I lib/gen_bf16.py
 
 rm -rf "$OUT"
 mkdir -p "$OUT"
