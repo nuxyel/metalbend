@@ -275,3 +275,35 @@ count repeated to within 0.0001% between rounds (cycles moved by up to 15%).
 - The scalar dot reads one number past each line, which the unchecked read must not be given at a capacity; the shape
   that stops before it (`km1`) costs matvec-bands 11% more checked, and the mask alone is 1.2-2.0 G of its 7.4 G to C.
 - Timings wait for an idle machine (`probes/1781/README.md`).
+
+## 2026-11-01: the harness before launch day (stale binaries, a fixed 2.0.39, preflight, launch.sh)
+
+- Stale binaries: `run.sh` reused any binary in `build/` (`build/39/` and `build/c/adamw` were from 10-25, before the
+  final-state hashes of 10-27). It now builds a binary again when its `main.bend`, `native.c` (and what it includes),
+  `gpu.bend`, a file of `lib/` or its compiler is newer, and ends with `scripts/oracle_diff.py` (exit 1 on any
+  difference). `release.sh` also clears `build/c` and `build/gpu-*`. `oracle_diff.py` listed every `<name>:gpu` line
+  as missing on a CPU run, so a real `release.sh` would have failed since the GPU oracles went in; it now checks the
+  GPU targets of a `gpu.tsv` against them and asks for them only then.
+- "39" is `~/.bend-2.0.39/bin/bend`, a copy of the release next to 2.0.37 and 2.0.38's (the same SHA-256 as
+  `~/.bend/bin/bend` today), no longer `~/.bend/bin/bend`, which the next `setup.sh` moves. Every version must report
+  the release it names before anything builds, or `run.sh` stops. Names: 2.0.x by its last number, from 2.1 on the
+  full version (`2.1.0`), in run.sh, release.sh, analyze.py, chart.py, oracle_diff.py and `docs/format.md`.
+- `scripts/preflight.sh` (mains, profile, load under 2.0, other Bend or agent processes, `perf_event_paranoid`, CPU
+  3's SMT sibling, which this kernel lists as CPU 4); its lines and a `busy` key go to `env.tsv` with the governor,
+  `no_turbo`, THP, bun, each version's source (commit or binary hash) and a content hash of every imported package
+  (`scripts/packages.py`). `analyze.py` prints the machine and marks a busy run at the top of `summary.md`.
+- New: `scripts/bend_main.sh`, `scripts/report.py`, `scripts/launch.sh` (`make launch VERSION=...`),
+  `scripts/bump_bend.sh`, `probes/1781/build.sh`, and a weekly, non-blocking `.github/workflows/main.yml`.
+- Bend main faeb02ea (2026-10-31, still reports 2.0.39): `make check` 33 runs and `make check-gpu` 9 runs, every hash
+  its oracle; nothing moved since 2.0.39. The #1781 probe's binaries built by `build.sh` on 2.0.39 and on main print
+  the hashes of the 10-29 idle round.
+- Source build against the released binary, 2.0.39 (busy machine, load 5-10; instructions only): the two compilers
+  emit the same `.text`, `.rodata` and `.data` for gemm-tile8, softmax-ce, adamw, matvec-bands and block-step (the
+  files differ only in the C file's name in the symbol table), and three rounds under `taskset -c 3` count the same
+  user-mode instructions within 5,000 of 7.8-17.9 G: softmax-ce 7,819.20 M, adamw 17,869.92 M, gemm-tile8 13,769.19 M,
+  matvec-bands 10,634.62 M on both. Result: a source build stands for the release in `release.sh`.
+- Launch rehearsed: `BUSY_OK=1 ROUNDS=1 OUT=<scratch> scripts/launch.sh 2.0.39` ran end to end in 11 min (preflight
+  busy, so marked; `check-gpu` 9 runs; both versions built from their tags; 61 cases, every hash its oracle, GPU
+  targets included; the probe skipped, since v2.0.39 lacks a888ef27; chart and `report.md` written). Its timings are
+  thrown away and the folder deleted. Left: `analyze.py` still lists block-step's GPU output as differing from the
+  CPU's, which its `:gpu` oracle already records as expected.
