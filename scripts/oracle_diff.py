@@ -5,7 +5,8 @@
 
 A case is a workload on one Bend version and thread count, or its C target. Every run of a case must have exit
 status ok and print the workload's oracle; a case that fails, prints another hash, or has no oracle line is listed.
-Every workload of oracles.tsv must have run on every version of the run (a missing build is listed too). Prints one
+Every workload of oracles.tsv must have run on every version of the run (a missing build is listed too). With a
+gpu.tsv (GPU=1), each GPU target is a case too, against its line <name>:gpu; a :gpu line is only required then. Prints one
 line per problem and a last line with the count; exits 1 if there is any problem, 0 otherwise. release.sh prints it
 at the end, so a new release says at once whether any output moved from the recorded oracle.
 """
@@ -17,10 +18,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def full(v):
+    """A version's full name: 2.0.x versions are named by their last number in a run, later ones in full."""
+    return v if "." in v else f"2.0.{v}"
+
+
 def label(w, v, t):
     if v == "c":
         return f"{w}, C target"
-    return f"{w}, Bend 2.0.{v}, {t} thread{'' if t == '1' else 's'}"
+    if t == "gpu":
+        return f"{w}, GPU target, Bend {full(v)}"
+    return f"{w}, Bend {full(v)}, {t} thread{'' if t == '1' else 's'}"
 
 
 def compare(out, oracles=ROOT / "oracles.tsv"):
@@ -36,9 +44,18 @@ def compare(out, oracles=ROOT / "oracles.tsv"):
             c["bad"].append(r["status"])
         else:
             c["hash"].add(r["hash"])
+    gpu = Path(out) / "gpu.tsv"
+    if gpu.exists():
+        with open(gpu) as f:
+            for r in csv.DictReader(f, delimiter="\t"):
+                c = cases[(r["workload"] + ":gpu", r["bend"], "gpu")]
+                if r["status"] != "ok":
+                    c["bad"].append(r["status"])
+                else:
+                    c["hash"].add(r["hash"])
     problems = []
     for (w, v, t), c in sorted(cases.items()):
-        name = label(w, v, t)
+        name = label(w.removesuffix(":gpu"), v, t)
         if w not in want:
             problems.append(f"NO ORACLE {name}: no line for {w} in oracles.tsv")
             continue
@@ -51,9 +68,11 @@ def compare(out, oracles=ROOT / "oracles.tsv"):
         problems.append("NO RUNS   runs.tsv has no runs (ROUNDS=0, or nothing built)")
     versions = sorted({v for _, v, _ in cases if v != "c"})
     for w in sorted(want):
+        if w.endswith(":gpu") and not gpu.exists():
+            continue
         for v in versions:
             if not any(cw == w and cv == v for cw, cv, _ in cases):
-                problems.append(f"MISSING   {w}, Bend 2.0.{v}: no run (did it build?)")
+                problems.append(f"MISSING   {w}, Bend {full(v)}: no run (did it build?)")
     return problems, len(cases)
 
 
