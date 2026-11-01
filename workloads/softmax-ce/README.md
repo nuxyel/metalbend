@@ -30,4 +30,5 @@ It prints each round's loss bits and the hash of the gradients' sum: `debeda8b7b
 - C: exp in single precision (`expf`): caught;
 - C: the row's max takes ties from the right: survives, and must here (a tie picks an equal number, and the logits
   hold no -0 or NaN, the only values where the two differ);
-- `oracles.tsv`: one digit of this workload's oracle: caught.
+- `oracles.tsv`: one digit of this workload's oracle: caught;
+- C: exp in single precision, checked against `softmax-ce-array`'s oracle (the same C): caught.

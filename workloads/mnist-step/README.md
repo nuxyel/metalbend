@@ -23,4 +23,4 @@ It prints the summed loss's bits and the hash of each parameter: `2d83be930d21fb
 ## The mutants (`scripts/mutate.py`)
 
 - one batch fewer: caught;
-- C: the ReLU's gradient passes zeros (`>=` for `>`): caught.
+- C: the ReLU's gradient passes zeros (`>=` for `>`): caught, here and against `mnist-fork`'s oracle (the same C).
