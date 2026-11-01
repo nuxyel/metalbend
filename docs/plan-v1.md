@@ -114,5 +114,7 @@ rounds, so that run measures the new C targets and the GPU lane at no extra sess
 
 8. **Launch day** (topic 7). `make check-gpu && GPU=1 ./release.sh 2.0.40` on the idle machine (mains power, `performance` profile, no agents
    running), with the GPU lane: from that one run, 2.0.40 against 2.0.39, the cycle ratios of the five new C targets,
-   the GPU kernel times, whether a source build counts the release's instructions, and the chart again. Then the results folder, NOTES, README, the release PR and `v1.0.0`, the
+   the GPU kernel times, whether a source build counts the release's instructions, and the chart again. Since
+   2026-11-01 (Renan's call) 1.0 has fifteen workloads: softmax-ce-array, mnist-fork, read-bf16 and bpe-encode joined
+   with their bits and oracles, and get their first timings in this run. Then the results folder, NOTES, README, the release PR and `v1.0.0`, the
    repository public, and the posts. The checklist is in the launch notes.
