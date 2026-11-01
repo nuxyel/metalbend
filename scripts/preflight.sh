@@ -5,8 +5,9 @@
 # The checks: the one-minute load average under MAX_LOAD (2.0; the runs of record started at 0.9-1.4), read first so
 # the other checks' processes do not count in it; mains power; the power profile `performance`; no other Bend compiler
 # or agent running (bend, a source build's bend2/main.ts, opencode, claude, codex); perf_event_paranoid at most 1
-# (run.sh counts kernel-mode events too); and CPU 3's SMT sibling idle over PREFLIGHT_SAMPLE seconds (1), under 10% of
-# its time busy, since run.sh pins one thread to CPU 3 and the sibling shares its core.
+# (run.sh counts kernel-mode events too); and the SMT sibling of CPU (3, as in run.sh) idle over PREFLIGHT_SAMPLE
+# seconds (1), under 10% of its time busy, since run.sh pins one thread to that CPU and the sibling shares its core.
+# The check is named after the CPU (cpu3_sibling).
 # Only timings need this: the bits (make check) and instruction counts on a busy machine are labeled, never refused.
 # PREFLIGHT_SYS and PREFLIGHT_PROC (/sys and /proc) are for the tests.
 set -uo pipefail
@@ -14,6 +15,7 @@ SYS=${PREFLIGHT_SYS:-/sys}
 PROC=${PREFLIGHT_PROC:-/proc}
 MAX_LOAD=${MAX_LOAD:-2.0}
 SAMPLE=${PREFLIGHT_SAMPLE:-1}
+CPU=${CPU:-3}
 mode=${1:-table}
 
 rows=()
@@ -48,11 +50,11 @@ check other_processes "${others:-none}" "$([ -z "$others" ] && echo ok || echo b
 paranoid=$(cat "$PROC/sys/kernel/perf_event_paranoid" 2>/dev/null || echo unknown)
 check perf_event_paranoid "$paranoid" "$([[ $paranoid =~ ^-?[0-9]+$ ]] && [ "$paranoid" -le 1 ] && echo ok || echo busy)"
 
-# CPU 3's SMT siblings (thread_siblings_list, as "2-3" or "2,3"), each sampled from /proc/stat
-siblings=$(tr ',' '\n' < "$SYS/devices/system/cpu/cpu3/topology/thread_siblings_list" 2>/dev/null |
-  awk -F- '{for (c = $1; c <= ($2 == "" ? $1 : $2); c++) if (c != 3) print c}')
+# CPU's SMT siblings (thread_siblings_list, as "2-3" or "2,3"), each sampled from /proc/stat
+siblings=$(tr ',' '\n' < "$SYS/devices/system/cpu/cpu$CPU/topology/thread_siblings_list" 2>/dev/null |
+  awk -F- -v me="$CPU" '{for (c = $1; c <= ($2 == "" ? $1 : $2); c++) if (c != me) print c}')
 if [ -z "$siblings" ]; then
-  check cpu3_sibling none ok
+  check "cpu${CPU}_sibling" none ok
 else
   stat() { awk -v c="cpu$1" '$1 == c {print $2 + $3 + $4 + $5 + $6 + $7 + $8 + $9, $5 + $6}' "$PROC/stat"; }
   declare -A t0 i0
@@ -61,7 +63,7 @@ else
   for c in $siblings; do
     read -r t1 i1 < <(stat "$c")
     busy=$(awk -v dt=$((t1 - t0[$c])) -v di=$((i1 - i0[$c])) 'BEGIN {printf "%.0f", dt ? 100 * (dt - di) / dt : 0}')
-    check cpu3_sibling "cpu$c ${busy}%" "$([ "$busy" -lt 10 ] && echo ok || echo busy)"
+    check "cpu${CPU}_sibling" "cpu$c ${busy}%" "$([ "$busy" -lt 10 ] && echo ok || echo busy)"
   done
 fi
 

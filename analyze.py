@@ -112,8 +112,8 @@ def gpu_table(path, cell, findings, oracles=None):
     return lines
 
 
-MACHINE = ("cpu", "kernel", "ac_online", "power_profile", "governor", "no_turbo", "thp", "loadavg_start", "loadavg_end",
-           "pre_other_processes", "pre_cpu3_sibling", "pre_perf_event_paranoid", "busy")
+MACHINE = ("cpu", "kernel", "cpu_pinned", "pmu", "ac_online", "power_profile", "governor", "no_turbo", "thp",
+           "loadavg_start", "loadavg_end", "pre_other_processes", "pre_cpu_sibling", "pre_perf_event_paranoid", "busy")
 
 
 def machine(out):
@@ -129,7 +129,10 @@ def machine(out):
         la = env.get("loadavg_start", "").split()
         busy = "loadavg" if la and float(la[0]) >= 2.0 else "no"
     lines = ["", "## Machine (env.tsv)", "", "| key | value |", "|---|---|"]
-    lines += [f"| {k} | {env[k] if k in env else busy if k == 'busy' else '-'} |" for k in MACHINE]
+    # the pinned CPU's sibling check is named after it (pre_cpu3_sibling); a run from before CPU= pinned CPU 3
+    cpu = env.get("cpu_pinned", "3")
+    keys = [f"pre_cpu{cpu}_sibling" if k == "pre_cpu_sibling" else k for k in MACHINE]
+    lines += [f"| {k} | {env[k] if k in env else busy if k == 'busy' else '-'} |" for k in keys]
     return lines, busy
 
 
