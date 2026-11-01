@@ -4,7 +4,7 @@ export BEND_NO_TELEMETRY := 1
 export PATH := $(HOME)/.bend/bin:$(HOME)/.elan/bin:$(PATH)
 PY := python3 -I
 
-.PHONY: setup data check check-gpu test laws mutate
+.PHONY: setup data check check-gpu test laws mutate launch
 
 setup:            ## install the pinned Bend (2.0.39) and Lean (4.34.0) if missing; check clang and Python 3
 	scripts/setup.sh
@@ -26,3 +26,6 @@ laws:             ## the ten laws of laws/ check (with --verdict) and each of th
 
 mutate:           ## break the corpus and the tools on purpose; every mutant must be caught (scripts/mutate.py)
 	$(PY) scripts/mutate.py
+
+launch:           ## launch day on a release, VERSION=2.0.40: preflight, check-gpu, GPU=1 release.sh, probe, chart, report
+	scripts/launch.sh $(VERSION)
