@@ -42,8 +42,8 @@ with `+RTS --gpu off -RTS` must print `<name>`'s hash).
 ## A run: `results/<folder>/`
 
 `run.sh` writes one folder (`OUT`, `results/<date>` by default; `release.sh` uses `results/<date>-<version>`). Every
-file is tab-separated with a header line. A 2.0.x version is named by its last number (`39` for 2.0.39), a version from 2.1 on by its full number (`2.1.0`),
-the C target by `c`.
+file is tab-separated with a header line. A 2.0.x version is named by its last number (`39` for 2.0.39), a version
+from 2.1 on by its full number (`2.1.0`), the C target by `c`.
 
 `runs.tsv`, one line per CPU run:
 
