@@ -18,7 +18,7 @@ STAT_BUSY = "cpu3 101 0 0 1099 0 0 0 0\ncpu4 150 0 0 1050 0 0 0 0\n"   # 50% bus
 
 class Preflight(unittest.TestCase):
     def run_pf(self, *args, ps=IDLE_PS, profile="performance", load="0.20", online="1", paranoid="1",
-               siblings="3-4", after=STAT_IDLE, load_after=None, cpu=None, before=STAT0):
+               siblings="3-4", after=STAT_IDLE, load_after=None, cpu=None, before=STAT0, pids=None, extra=None):
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             sys_, proc, bin_ = d / "sys", d / "proc", d / "bin"
@@ -35,15 +35,23 @@ class Preflight(unittest.TestCase):
             (proc / "loadavg").write_text(f"{load} 0.10 0.10 1/100 1000\n")
             (proc / "stat").write_text(before)
             (proc / "stat.after").write_text(after)
+            # pid: (ppid, ticks before the sample, ticks after), as /proc/<pid>/stat's utime (stime 0)
+            for pid, (ppid, t0, t1) in (pids or {}).items():
+                (proc / str(pid)).mkdir()
+                for f, t in (("stat", t0), ("stat.after", t1)):
+                    (proc / str(pid) / f).write_text(f"{pid} (x y) S {ppid} 0 0 0 0 0 0 0 0 0 {t} 0 0 0 0\n")
             bin_.mkdir()
             for name, body in (("ps", f"cat <<'EOF'\n{ps}EOF\n"), ("powerprofilesctl", (f"echo '{load_after} 0.10 0.10 1/100 1000' > '{proc}/loadavg'\n"
                                                      if load_after else "") + f"echo {profile}\n"),
-                               ("sleep", f"cp '{proc}/stat.after' '{proc}/stat'\n")):
+                               ("sleep", f"cp '{proc}/stat.after' '{proc}/stat'\n"
+                                         f"for f in '{proc}'/[0-9]*/stat.after; do [ -f \"$f\" ] && cp \"$f\" \"${{f%.after}}\"; done\n")):
                 (bin_ / name).write_text("#!/bin/sh\n" + body)
                 (bin_ / name).chmod(0o755)
             env = dict(os.environ, PREFLIGHT_SYS=str(sys_), PREFLIGHT_PROC=str(proc), PREFLIGHT_SAMPLE="1",
                        PATH=f"{bin_}:{os.environ['PATH']}")
             env.pop("CPU", None)
+            env.pop("AGENTS_IDLE_OK", None)
+            env.update(extra or {})
             if cpu:
                 env["CPU"] = cpu
             return subprocess.run(["bash", str(ROOT / "scripts" / "preflight.sh"), *args], env=env,
@@ -68,6 +76,27 @@ class Preflight(unittest.TestCase):
                 p = self.run_pf(**kw)
                 self.assertEqual(p.returncode, 1, p.stdout)
                 self.assertIn(f"preflight: busy ({name})", p.stdout)
+
+    def test_idle_agents_pass_with_agents_idle_ok(self):
+        # one tick of claude's tree over the one-second sample: 1% of a CPU at 100 ticks a second, under 2%
+        p = self.run_pf(ps=IDLE_PS + "  301 claude claude\n", pids={301: (1, 1000, 1001)}, extra={"AGENTS_IDLE_OK": "1"})
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertIn("ok     other_processes      claude x1, agents idle 1.0%", p.stdout)
+
+    def test_an_agents_descendant_counts(self):
+        # a build the agent runs (pid 400, its child) is in its tree: 21 ticks, 21%
+        p = self.run_pf(ps=IDLE_PS + "  301 claude claude\n  400 make make check\n",
+                        pids={301: (1, 1000, 1001), 400: (301, 500, 520), 200: (1, 10, 90)},
+                        extra={"AGENTS_IDLE_OK": "1"})
+        self.assertEqual(p.returncode, 1, p.stdout)
+        self.assertIn("busy   other_processes      claude x1, agents 21.0%", p.stdout)
+
+    def test_a_compiler_is_busy_even_with_agents_idle_ok(self):
+        p = self.run_pf(ps=IDLE_PS + "  301 claude claude\n  303 bend bend main.bend -o x\n",
+                        pids={301: (1, 1000, 1000)}, extra={"AGENTS_IDLE_OK": "1"})
+        self.assertEqual(p.returncode, 1, p.stdout)
+        self.assertIn("preflight: busy (other_processes)", p.stdout)
+        self.assertNotIn("agents", p.stdout)
 
     def test_the_load_is_read_before_the_other_checks(self):
         # the checks' own processes (here powerprofilesctl) must not count in the load average they judge
