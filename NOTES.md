@@ -433,3 +433,19 @@ cases). Instructions repeat to 0.00% between rounds, so their changes stand:
 - GPU kernels: block-step 207.5 to 178.3 ms (-14%), rmsnorm-step -5.5%, gemm-tile8 +3.5% (inside its 10% spread).
 - The #1781 probe (`probe-1781.tsv`, medians of 5): the dot with `get_unchecked` 0.073 s against 0.121 s checked and
   0.070 s for its C; matvec 0.451 s against 0.535 s (C 0.239 s); gemm 0.522 s against 0.648 s (C 0.506 s).
+
+## 2026-11-06: bpe-encode's regression on 2.0.40 is two upstream commits
+
+The two commits were found by bisecting bendlang/bend between the tags, counting instructions and L1 load misses on
+one pinned thread. Each was checked by undoing it in 2.0.40's emitted C, and #1978 in the compiler too. Every build
+printed the oracle's hash.
+- bendlang/bend#1978 (0d35f6da, the Metal fix for #1954) accounts for the instructions, 177.9 G to 196.3 G. On the host,
+  every take of a node with the RFC bit now calls `span_fade`: a plain `noinline`, where 2.0.39 did the last-holder
+  free inline. 1.21 G calls against 39.5 M. With the take as in 2.0.39, 2.0.40 runs 173.6 G instructions, 2.3% under
+  2.0.39.
+- bendlang/bend#2036 (3c1f0d3a) accounts for most of the remaining cycles. Instructions go down 1.1%, but L1 load misses
+  in `bump.go`'s walk over the pair counters go from 0.22 G to 1.24 G. It comes from `merge.go`, which now keeps a
+  token boxed instead of building it again. Why that layout misses is not proven.
+- With both undone, 2.0.40 is back to 2.0.39: 177.1 G instructions, 33.9 G cycles against 33.7 G.
+
+An upstream draft is in my private notes. Upstream main still has both.
