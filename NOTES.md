@@ -415,3 +415,21 @@ its oracle (`make check-gpu` 9 more). Instructions repeat to 0.00% between round
   `check_oracles.sh` builds into `$OUT`, so the GPU binaries landed in the results folder (removed before the commit).
   The chart of this run is in the folder; `docs/results-2.0.39.svg` is unchanged.
 - The run of record remains 2.0.40's, on launch day; these numbers do not fill its blanks.
+
+## 2026-11-06: the launch run on 2.0.40, with agent sessions open (`results/2026-11-06-2.0.40-diagnosis/`)
+
+`scripts/launch.sh 2.0.40`, 5 rounds, from a night script after a 30-minute wait for a clean preflight; the only busy
+check was two idle Claude Code sessions, so `BUSY_OK=1` and the run is a diagnosis, not the run of record (renamed so
+`results/<date>-2.0.40` stays free for it; `docs/` untouched). Load 1.10 at the start. Every hash its oracle (81
+cases). Instructions repeat to 0.00% between rounds, so their changes stand:
+
+- 2.0.40 runs fewer instructions than 2.0.39 on thirteen workloads: rmsnorm-step -29.4% (cycles -30.2%), read-bf16
+  -40.5% (cycles -16.8%), softmax-ce-array -8.5%, mnist-fork -5.9%, adamw -5.8%, the rest -1.7% to -2.9%.
+- **bpe-encode regresses: +9.3% instructions, +28.1% cycles (7.37 to 9.44 s), same output.** gemm-fork +0.9%
+  instructions. To look at before the run of record.
+- Bend / C in cycles, one thread, 2.0.39 to 2.0.40: rmsnorm-step 3.62x to 2.52x, read-bf16 1.81x to 1.51x,
+  softmax-ce-array 1.17x to 1.09x, adamw 1.19x to 1.14x, mnist-fork 1.37x to 1.29x; bpe-encode 475x to 609x.
+- 16 threads over one: matvec-bands 4.35x to 5.15x, block-step 4.07x to 4.74x, attention-step 3.65x to 3.93x.
+- GPU kernels: block-step 207.5 to 178.3 ms (-14%), rmsnorm-step -5.5%, gemm-tile8 +3.5% (inside its 10% spread).
+- The #1781 probe (`probe-1781.tsv`, medians of 5): the dot with `get_unchecked` 0.073 s against 0.121 s checked and
+  0.070 s for its C; matvec 0.451 s against 0.535 s (C 0.239 s); gemm 0.522 s against 0.648 s (C 0.506 s).
