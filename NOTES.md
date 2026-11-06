@@ -460,3 +460,8 @@ An upstream draft is in my private notes. Upstream main still has both.
   `claude x2, agents idle 0.4%`, so a run says what was open.
 - `scripts/when_idle.sh <command>` runs the preflight every minute and starts the command after five passes in a row.
   The 2.0.40 run of record waits on it, detached, with `AGENTS_IDLE_OK=1`.
+- Calibrated the same day: two idle Claude Code sessions use 2-5% of one CPU in a one-second sample (the threshold
+  of 2% never let five minutes pass in a row) and 4.9% over 30 s; a build uses 100% or more. The run of record
+  waits with `AGENT_SAMPLE=10 AGENT_MAX_PCT=10`, 10% of one CPU being under 0.5% of the machine, on cores other
+  than the pinned one. Its first two starts stopped at `make check-gpu`: `check_oracles.sh` wants its pinned Bend
+  2.0.39 and `~/.bend` is 2.0.40 since that morning, so the unit sets `BEND=~/.bend-2.0.39/bin/bend`.
