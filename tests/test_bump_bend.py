@@ -3,6 +3,7 @@ architecture: every pin moves to the new release, run.sh learns its fixed copy a
 run says it is already there. Needs git (for its diff --stat)."""
 import hashlib
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -15,6 +16,16 @@ FILES = ("scripts/bump_bend.sh", "scripts/setup.sh", "scripts/check_oracles.sh",
          ".github/workflows/ci.yml", "README.md", "run.sh")
 # writes "tarball <file name>" to the file after -o
 CURL = '#!/bin/sh\nwhile [ "$1" != -o ]; do shift; done\nprintf "tarball %s" "$(basename "$2")" > "$2"\n'
+
+
+# the pin as the repository has it now and the release after it, so the test bumps one step past each real bump
+PIN = re.search(r"^BEND_VERSION=(\S+)$", (ROOT / "scripts" / "setup.sh").read_text(), re.M).group(1)
+NEXT = PIN.rsplit(".", 1)[0] + "." + str(int(PIN.rsplit(".", 1)[1]) + 1)
+RUN_VERSIONS = re.search(r'^VERSIONS=\$\{VERSIONS:-"([^"]*)"\}$', (ROOT / "run.sh").read_text(), re.M).group(1)
+
+
+def name(v):  # run.sh's names: a 2.0.x release by its last number, a later one in full
+    return v.rsplit(".", 1)[1] if v.startswith("2.0.") else v
 
 
 def sha(name):
@@ -46,35 +57,37 @@ class BumpBend(unittest.TestCase):
         return (self.d / f).read_text()
 
     def test_every_pin_moves(self):
-        p = self.bump("2.0.40")
+        old, new = PIN, NEXT
+        p = self.bump(new)
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         setup = self.read("scripts/setup.sh")
-        self.assertIn("BEND_VERSION=2.0.40\n", setup)
-        self.assertIn(f"SHA={sha('bend-2.0.40-linux-x64.tar.gz')} ;;", setup)
-        self.assertIn(f"SHA={sha('bend-2.0.40-linux-arm64.tar.gz')} ;;", setup)
-        self.assertNotIn("2.0.39", setup)
-        self.assertIn("\nPIN=2.0.40\n", self.read("scripts/check_oracles.sh"))
-        self.assertIn("Bend's working pin is **2.0.40**", self.read("CLAUDE.md"))
-        self.assertIn("install the pinned Bend (2.0.40)", self.read("Makefile"))
-        self.assertIn("Set up (Bend 2.0.40, Lean", self.read(".github/workflows/ci.yml"))
+        self.assertIn(f"BEND_VERSION={new}\n", setup)
+        self.assertIn(f"SHA={sha(f'bend-{new}-linux-x64.tar.gz')} ;;", setup)
+        self.assertIn(f"SHA={sha(f'bend-{new}-linux-arm64.tar.gz')} ;;", setup)
+        self.assertNotIn(old, setup)
+        self.assertIn(f"\nPIN={new}\n", self.read("scripts/check_oracles.sh"))
+        self.assertIn(f"Bend's working pin is **{new}**", self.read("CLAUDE.md"))
+        self.assertIn(f"install the pinned Bend ({new})", self.read("Makefile"))
+        self.assertIn(f"Set up (Bend {new}, Lean", self.read(".github/workflows/ci.yml"))
         readme = self.read("README.md")
-        self.assertIn("make setup     # Bend 2.0.40 (checked by SHA256)", readme)
-        self.assertIn("Bend 2.0.35-2.0.40, 5 rounds", readme)
+        self.assertIn(f"make setup     # Bend {new} (checked by SHA256)", readme)
+        self.assertIn(f"Bend 2.0.35-{new}, 5 rounds", readme)
         run = self.read("run.sh")
-        self.assertIn('    39) echo "$HOME/.bend-2.0.39/bin/bend" ;;\n    40) echo "$HOME/.bend-2.0.40/bin/bend" ;;\n', run)
-        self.assertIn('VERSIONS=${VERSIONS:-"35 36 37 38 39 40"}', run)
+        self.assertIn(f'    {name(old)}) echo "$HOME/.bend-{old}/bin/bend" ;;\n'
+                      f'    {name(new)}) echo "$HOME/.bend-{new}/bin/bend" ;;\n', run)
+        self.assertIn(f'VERSIONS=${{VERSIONS:-"{RUN_VERSIONS} {name(new)}"}}', run)
         self.assertEqual(subprocess.run(["bash", "-n", str(self.d / "run.sh")]).returncode, 0)
-        self.assertIn("a fixed copy of 2.0.40 at ~/.bend-2.0.40", p.stdout)
-        p = self.bump("2.0.40")
-        self.assertEqual((p.returncode, p.stdout), (0, "already on 2.0.40\n"))
+        self.assertIn(f"a fixed copy of {new} at ~/.bend-{new}", p.stdout)
+        p = self.bump(new)
+        self.assertEqual((p.returncode, p.stdout), (0, f"already on {new}\n"))
 
     def test_a_release_after_2_0_is_named_in_full(self):
-        self.assertEqual(self.bump("2.0.40").returncode, 0)
+        self.assertEqual(self.bump(NEXT).returncode, 0)
         p = self.bump("2.1.0")
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         run = self.read("run.sh")
         self.assertIn('    2.1.0) echo "$HOME/.bend-2.1.0/bin/bend" ;;\n', run)
-        self.assertIn('VERSIONS=${VERSIONS:-"35 36 37 38 39 40 2.1.0"}', run)
+        self.assertIn(f'VERSIONS=${{VERSIONS:-"{RUN_VERSIONS} {name(NEXT)} 2.1.0"}}', run)
         self.assertIn("\nPIN=2.1.0\n", self.read("scripts/check_oracles.sh"))
 
 

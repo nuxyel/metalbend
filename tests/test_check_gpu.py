@@ -2,6 +2,7 @@
 check-gpu): with no GPU it skips with the reason and passes, so it never breaks a machine (or CI) without one, and its
 oracle lines must match the gpu.bend files, both ways. run.sh: GPU=1 with no GPU stops before anything runs."""
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -10,8 +11,10 @@ from pathlib import Path
 
 from synth import ROOT, copy_tools
 
-FAKE_BEND = """#!/bin/sh
-[ "$1" = version ] && echo "bend 2.0.39" && exit 0
+# the pinned version check_oracles.sh wants, read from it so the fake follows each bump
+PIN = re.search(r"^PIN=(\S+)$", (ROOT / "scripts" / "check_oracles.sh").read_text(), re.M).group(1)
+FAKE_BEND = f"""#!/bin/sh
+[ "$1" = version ] && echo "bend {PIN}" && exit 0
 exit 1
 """
 
