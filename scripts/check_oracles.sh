@@ -14,7 +14,7 @@
 # Builds go to $OUT (build/check by default), fresh on every call.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-PIN=2.0.39
+PIN=2.0.40
 BEND=${BEND:-bend}
 # a path (build/bin/main) made absolute: the builds run from inside each workload's folder
 case $BEND in */*) BEND=$(realpath "$BEND") ;; esac

@@ -6,7 +6,7 @@ PY := python3 -I
 
 .PHONY: setup data check check-gpu test laws mutate launch
 
-setup:            ## install the pinned Bend (2.0.39) and Lean (4.34.0) if missing; check clang and Python 3
+setup:            ## install the pinned Bend (2.0.40) and Lean (4.34.0) if missing; check clang and Python 3
 	scripts/setup.sh
 
 data:             ## data/dense.bin and data/bf16.safetensors, the read workloads' inputs (deterministic)

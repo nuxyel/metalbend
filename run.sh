@@ -22,7 +22,7 @@ cd "$(dirname "$0")"
 # CPU (3) for the one-thread runs, and the perf PMUs that count them (cpu_core and cpu_atom, or plain cpu)
 . scripts/pmu.sh
 ROUNDS=${ROUNDS:-5}
-VERSIONS=${VERSIONS:-"35 36 37 38 39"}
+VERSIONS=${VERSIONS:-"35 36 37 38 39 40"}
 WORKLOADS=${WORKLOADS:-$(ls workloads)}
 THREADS=${THREADS:-1}
 GPU=${GPU:-0}
@@ -58,6 +58,7 @@ bend_path() {
     37) echo "$HOME/.bend-2.0.37/bin/bend" ;;
     38) echo "$HOME/.bend-2.0.38/bin/bend" ;;
     39) echo "$HOME/.bend-2.0.39/bin/bend" ;;
+    40) echo "$HOME/.bend-2.0.40/bin/bend" ;;
     *) return 1 ;;
   esac
 }

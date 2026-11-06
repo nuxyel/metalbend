@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # One-shot, idempotent setup for the checks (make check, make test, make mutate). No sudo.
 #
-#   scripts/setup.sh      # Bend 2.0.39 into ~/.bend (checked by SHA256), Lean 4.34.0, then clang and Python 3 checked
+#   scripts/setup.sh      # Bend 2.0.40 into ~/.bend (checked by SHA256), Lean 4.34.0, then clang and Python 3 checked
 #
 # The same install steps as BendTorch's scripts/setup.sh. run.sh's other versions and perf are for timing, which the
 # checks do not do.
 set -euo pipefail
 
-BEND_VERSION=2.0.39
+BEND_VERSION=2.0.40
 LEAN_VERSION=4.34.0
 
 cd "$(dirname "$0")/.."
@@ -23,8 +23,8 @@ if have_bend; then
   echo "already installed"
 else
   case "$(uname -s)-$(uname -m)" in
-    Linux-x86_64)  OS=linux; ARCH=x64;   SHA=6cf462fd8f70b094a4950ebb709a9c4ffd8f1d1189d9cedf1fd63cd5d041c7ab ;;
-    Linux-aarch64) OS=linux; ARCH=arm64; SHA=71b43e1bb9313dd14ac2b0553b854e41c39d65ecaa47040796ebff4a46f54a97 ;;
+    Linux-x86_64)  OS=linux; ARCH=x64;   SHA=c9ff8d67bd903fb6ad9a26b43d8a62c01021de82a44d55ce4a3dcd4732113d6b ;;
+    Linux-aarch64) OS=linux; ARCH=arm64; SHA=2f42a6fa34ecdaa71ae105e5fa734f9a07e129d333e45448ab6d2ff03a837570 ;;
     *) echo "unsupported platform $(uname -s)-$(uname -m): Bend runs on Linux (use WSL on Windows)"; exit 1 ;;
   esac
   HOME_BEND=${BEND_HOME:-$HOME/.bend}

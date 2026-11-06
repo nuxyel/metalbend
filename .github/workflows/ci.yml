@@ -47,7 +47,7 @@ jobs:
           command -v clang || { sudo apt-get update -q && sudo apt-get install -y -q clang; }
           clang --version | head -1
 
-      - name: Set up (Bend 2.0.39, Lean 4.34.0)
+      - name: Set up (Bend 2.0.40, Lean 4.34.0)
         run: make setup
 
       # written on every run, never cached: the generator is part of what is checked
