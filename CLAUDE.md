@@ -17,7 +17,7 @@ hour that day); the launch is Renan's call. Nothing is pushed to `main` without 
 
 ## Rules
 
-1. Read bend-ml's `CLAUDE.md` ("pitfalls") before writing Bend. Bend's working pin is **2.0.39**; the
+1. Read bend-ml's `CLAUDE.md` ("pitfalls") before writing Bend. Bend's working pin is **2.0.40**; the
    corpus runs older versions and `main` on purpose.
 2. Every workload prints a hash of its full output; a run whose hash differs from the oracle is a finding, never
    noise.

@@ -63,7 +63,7 @@ the GPU target's own oracle, and the same binary with `--gpu off` must still pri
 Needs Linux with `perf` and `taskset`, clang, Python 3, and the Bend versions to compare.
 
 ```sh
-./run.sh                                     # every workload, Bend 2.0.35-2.0.39, 5 rounds, into results/<today>/
+./run.sh                                     # every workload, Bend 2.0.35-2.0.40, 5 rounds, into results/<today>/
 ROUNDS=3 VERSIONS="38 39" WORKLOADS="softmax-ce" THREADS="1 16" ./run.sh
 BEND_39=~/.bend/bin/bend VERSIONS=39 ./run.sh  # point a version at a binary installed elsewhere
 GPU=1 VERSIONS=39 ./run.sh                   # the GPU targets too, into gpu.tsv (needs CUDA and an NVIDIA GPU)
@@ -149,7 +149,7 @@ The scripts were written on one machine (a Core Ultra 7 155H on Linux) and say w
 ## Checks
 
 ```sh
-make setup     # Bend 2.0.39 (checked by SHA256), then clang and Python 3 checked
+make setup     # Bend 2.0.40 (checked by SHA256), then clang and Python 3 checked
 make check     # every workload on 1 and 16 threads and every C target, against oracles.tsv
 make check-gpu # every GPU target on the GPU and with --gpu off on 1 and 16 threads; skips if there is no GPU
 make test      # analyze.py, scripts/chart.py, oracle_diff.py, run.sh's guard and PMU choice, the GPU lane's skip, release.sh on a fake upstream
