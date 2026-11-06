@@ -2,8 +2,8 @@
 
 A corpus of real ML workloads for Bend 2's compiler: each with a spec, a bit oracle, a handwritten C target and
 hardware-counter timings, run on every Bend release. The fourth project after bend-ml, llama.bend and BendTorch
-(chosen 2026-10-25; the analysis is in Renan's private notes, never linked from here). Private again since 2026-10-27 (public for about an
-hour that day); the launch is Renan's call. Nothing is pushed to `main` without him.
+(chosen 2026-10-25; the analysis is in Renan's private notes, never linked from here). Public since 2026-11-06 (v1.0.0, its launch;
+private before, except for about an hour on 2026-10-27). Nothing is pushed to `main` without him.
 
 ## Where things are
 
