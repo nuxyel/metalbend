@@ -23,12 +23,16 @@ static inline void mb_rand_s(float *a, size_t n, uint32_t seed, float s) {
   for (size_t i = 0; i < n; i++) a[i] = mb_val(seed, (uint32_t)i) * s;
 }
 
-// FNV-1a over the bits of n cells, printed as mb.bend's show_hash prints it
-static inline void mb_show_hash(const float *a, size_t n) {
-  uint32_t h = 2166136261u;
+// FNV-1a over the bits of n cells, from the state h: mb.bend's hash_go, which a hash over several arrays carries on
+static inline uint32_t mb_fnv(uint32_t h, const float *a, size_t n) {
   for (size_t i = 0; i < n; i++) h = (h ^ f2u(a[i])) * 16777619u;
-  printf("%u\n", h);
+  return h;
 }
+
+#define MB_FNV_START 2166136261u
+
+// mb.bend's hash of n cells, printed as its show_hash prints it
+static inline void mb_show_hash(const float *a, size_t n) { printf("%u\n", mb_fnv(MB_FNV_START, a, n)); }
 
 static inline float *mb_zeros(size_t n) {
   float *a = calloc(n, sizeof(float));

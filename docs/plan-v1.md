@@ -47,3 +47,74 @@ not reachable yet, with why.
 
 GPU beyond measuring, cluster work, new production kernels (the softmax over arrays belongs to bend-ml), patches to
 the compiler.
+
+## Toward the v1.0.0 release (2026-10-27)
+
+**Done on 2026-10-27** (NOTES.md): the tool checks itself. `oracles.tsv` and `make check` (every workload on 1 and 16
+threads and every C target against its hash), `make test` (analyze.py, chart.py and run.sh's thread guard on synthetic
+runs), `make mutate` (52 mutants, 46 caught, 6 expected to survive, each with its reason), and CI running all of it
+with `make laws` on every push. Every workload has a C target with the same bits (five new; gemm-fork and read-binary
+reuse their twin's). Six laws instead of one, 16 mutants refused, two of them about the packages' real code
+(`bands_len`, `matvec_l_len`, `t8_rows_split`). Left: the parallel run of tensor-fork's blocks over shared arrays, and
+its split by columns, are not proved (Base has no fact that writes to different indexes commute).
+
+Next. A longer history (2.0.30-2.0.34) is dropped (Renan, 2026-10-27): what matters is every release from here on.
+The rest splits by what it needs. Everything that is bits, code or docs is done now, on a busy machine; every number
+that is a timing waits for one idle run, the day 2.0.40 ships, because `release.sh 2.0.40` runs 2.0.39 in the same
+rounds, so that run measures the new C targets and the GPU lane at no extra session.
+
+### Without an idle machine, in order
+
+1. **A stronger oracle for the whole-block workloads.** `block-step`, `attention-step` and `rmsnorm-step` print only
+   each step's loss, so one rounding changed in a layer can pass (the SiLU mutants). Hash the final weights (and
+   gradients where the workload has them) as well, the same in each `native.c`, then rebuild `oracles.tsv` on every
+   version (bits only).
+   Pass: the SiLU rounding mutants move from expected survivors to caught; the old and new hashes are both recorded in
+   NOTES.
+   **Done 2026-10-27** (NOTES): the three hash their final weights and AdamW moments, the three SiLU rounding mutants
+   are caught, and `oracles.tsv` holds the new hashes from 2.0.35-2.0.39 and the C targets.
+2. **Rehearse launch day, bits only.** `ROUNDS=1 ./release.sh 2.0.39` end to end (build from the tags, run, analyze),
+   so a change upstream in how Bend builds (bun, the tag layout) shows up now and not on the day. Its timings are thrown
+   away; only the hashes are checked against `oracles.tsv`.
+   Pass: it runs to the end and every hash matches; what broke, fixed in `release.sh` with a test in `tests/`.
+   **Done (2026-10-27, NOTES.md):** it ran end to end and its 55 hashes are their oracles, once run.sh used the source
+   builds it had been missing.
+3. **gemm-fork under its C, read from the code and the instruction counts.** Instructions repeat between rounds even
+   on a busy machine (cycles do not), so the Bend / C ratio in instructions for the five new targets, and whether
+   gemm-fork's 0.94x is fewer instructions or only fewer cycles, can be read now. Diagnosis only: these counts do not go
+   in the README or `results/`.
+   Pass: a NOTES entry with the instruction ratios and the cause of 0.94x, or what is left for the idle run.
+   **Done 2026-10-27** (NOTES.md): fewer cycles, not fewer instructions (tensor-fork's column blocks keep B in L2;
+   the C was the plain order); gemm-fork now has its own blocked C; its cycle ratio waits for the idle run.
+4. **A GPU lane, wired and checked** (topic 4). Two or three workloads through tensor-gpu and BendTorch's gpu lane,
+   printing the same hashes; `make check-gpu` (local, since CI has no GPU), and `run.sh` taking a GPU target with the
+   kernel time. The kernel times themselves come from the launch-day run.
+   Pass: the same hash on the GPU as on the CPU, or the difference recorded and explained.
+   **Done on 2026-10-27** (NOTES.md): gemm-tile8, rmsnorm-step and block-step have GPU targets with the CPU's hashes,
+   `make check-gpu`, and `GPU=1 ./run.sh` with the kernels' time from nsys; block-step's match is the losses-only
+   oracle's (CUDA's float `exp`). With the weights hashed (step 1), block-step's GPU hash parts from the CPU's in its
+   final state (`015f98a384541840`, the same over three runs and two toolkits), and is its `:gpu` oracle.
+5. **A count law for the products** (optional, if it fits in a day). The matrix product gives r x m numbers, the way
+   `bands_len` does for matvec, on tensor-array's real code. The parallel run over shared arrays stays out until Base
+   has a fact that writes to different indexes commute.
+   **Done 2026-10-27** (NOTES): four laws, n x m writes of C on the real code from `gemm_any` down, six mutants.
+6. **A stable format** (topic 6). `docs/format.md` (what a workload is, `oracles.tsv`, `runs.tsv` and `env.tsv`, how a
+   workload and its oracle are added), a VERSIONING like the other projects', CI's `v1/**` push trigger dropped, and
+   clang pinned or its version recorded in `env.tsv`. The release PR and the tag `v1.0.0` wait for launch day, so that
+   v1.0.0 carries 2.0.40's results.
+   **Done 2026-10-27:** `docs/format.md`, `docs/VERSIONING.md`, CI on `main` and `devel` only; clang stays unpinned,
+   its version is `env.tsv`'s `clang` line on every run (CI's runner checks the bits with clang 18, this machine with
+   clang 23).
+7. **The launch drafts brought up to date** (private notes): eleven C targets, six laws, the oracle's limit or its fix,
+   with the new numbers left as blanks for the launch-day run.
+   **Done 2026-10-27:** the X thread and the LinkedIn post say eleven C targets, ten laws and the GPU lane's
+   difference, with `[2.0.40: ...]` blanks; the launch-day checklist runs `make check-gpu` and `GPU=1 ./release.sh`.
+
+### On the idle machine, the day Bend 2.0.40 ships
+
+8. **Launch day** (topic 7). `make check-gpu && GPU=1 ./release.sh 2.0.40` on the idle machine (mains power, `performance` profile, no agents
+   running), with the GPU lane: from that one run, 2.0.40 against 2.0.39, the cycle ratios of the five new C targets,
+   the GPU kernel times, whether a source build counts the release's instructions, and the chart again. Since
+   2026-11-01 (Renan's call) 1.0 has fifteen workloads: softmax-ce-array, mnist-fork, read-bf16 and bpe-encode joined
+   with their bits and oracles, and get their first timings in this run. Then the results folder, NOTES, README, the release PR and `v1.0.0`, the
+   repository public, and the posts. The checklist is in the launch notes.
