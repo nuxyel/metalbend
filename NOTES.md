@@ -449,3 +449,14 @@ printed the oracle's hash.
 - With both undone, 2.0.40 is back to 2.0.39: 177.1 G instructions, 33.9 G cycles against 33.7 G.
 
 An upstream draft is in my private notes. Upstream main still has both.
+
+## The preflight and idle agent sessions (2026-11-06)
+
+- Until today any `claude`, `codex` or `opencode` process made the machine busy, so an agent session left open and
+  idle turned a run of record into a diagnosis (the 2.0.40 run of 00:54, two idle sessions open, load 0.00). Renan's
+  call: an idle session is not work. With `AGENTS_IDLE_OK=1` the preflight samples each agent's whole process tree
+  (every descendant, so a build it starts counts) and lets it through under `AGENT_MAX_PCT` (2%) of one CPU over the
+  sample; a Bend compiler is still busy. The default is the old rule. `env.tsv` keeps the line, e.g.
+  `claude x2, agents idle 0.4%`, so a run says what was open.
+- `scripts/when_idle.sh <command>` runs the preflight every minute and starts the command after five passes in a row.
+  The 2.0.40 run of record waits on it, detached, with `AGENTS_IDLE_OK=1`.
