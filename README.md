@@ -166,24 +166,36 @@ losses, so one rounding changed inside a layer (SiLU's, say) is caught even when
 
 ## What it has found
 
-On Bend 2.0.35-2.0.39 (`NOTES.md` has each finding with its date and result folder):
+On Bend 2.0.35-2.0.40 (`NOTES.md` has each finding with its date and result folder):
 
+- **2.0.40** (`results/2026-11-06-2.0.40/`, the same bits on all 81 cases) runs fewer instructions than 2.0.39 on 12
+  of the 15 workloads: `rmsnorm-step` 29.4% fewer (30.2% fewer cycles), `read-bf16` 40.5% (17.2%),
+  `softmax-ce-array` 8.5%, `mnist-fork` 5.9%, `adamw` 5.8%; on the GPU, `block-step`'s kernels take 12.9% less device
+  time. `read-binary` is unchanged and `gemm-fork` runs 0.9% more instructions (its cycles within noise). One
+  regression: `bpe-encode` runs 9.3% more instructions and 28.9% more cycles, the same tokens. I traced it to two
+  changes upstream, each confirmed by building 2.0.40 with it undone: bendlang/bend#1978 makes every take of a shared
+  node a call on the host (the instructions), and bendlang/bend#2036 gives the program 5.6x the L1 misses (most of the
+  cycles).
+- **bendlang/bend#1781 on the CPU**: 2.0.40's `Array.get_unchecked` (bendlang/bend#1880) skips the index mask, and
+  with it the probe's matrix product runs at 1.04x C's cycles (1.30x with checked reads) and its dot product at 1.04x
+  (1.78x), with the same bits (`probes/1781/`). bend-ml's tensor-fork 0.1.7.0 reads its products' cells with it.
 - **2.0.39** runs `softmax-ce` in 64.7% fewer instructions than 2.0.38 and `mnist-step` in 27.1% fewer, with the same
   bits; the other workloads stay within 0.03%. All of it traces to bendlang/bend#1806, whose own benchmarks saw no
   change.
-- **Bend / C in cycles**, on 2.0.39: 1.20x `adamw`, 1.33x `gemm-tile8`, 1.96x `mnist-step`, 2.32x `matvec-bands`,
-  4.75x `softmax-ce`, 21x `read-native` (6.1x in wall time). For the matrix-vector product the main cause is the
-  `and` with the array's mask that every `Array.get` keeps (`repros/dot_mask.bend`, bendlang/bend#1781); for
-  `softmax-ce` it is tensor-array walking each row as a list (fixed in tensor-array 0.1.17.0, which this corpus
-  measured first). The other five workloads got their C targets on 2026-10-27 (the same bits); they are measured at
-  the next idle run.
-- **Threads**, on 2.0.39 (`results/2026-10-25-f/`): every workload gives the same bytes at 1 and 16 threads. At 16
-  threads `block-step` runs 4.49x faster, `matvec-bands` 4.21x, `attention-step` 3.67x and `gemm-fork` 2.17x. The
-  other seven gain nothing: `gemm-tile8` is tensor-array's sequential product (`gemm-fork` is its parallel twin),
-  `mnist-step`, `softmax-ce`, `adamw` and `rmsnorm-step` run their loops one after another (1.00-1.04x), and the two
-  file reads get slower (0.83x and 0.90x).
+- **Bend / C in cycles**, on 2.0.40: 1.09x `softmax-ce-array`, 1.13x `adamw`, 1.17x `gemm-fork`, 1.21x
+  `read-binary`, 1.22x `block-step`, 1.30x `gemm-tile8` and `mnist-fork`, 1.37x `attention-step`, 1.50x `read-bf16`,
+  1.84x `mnist-step`, 2.32x `matvec-bands`, 2.50x `rmsnorm-step`, 4.47x `softmax-ce`, 19x `read-native`, and 611x
+  `bpe-encode`, whose C target counts the pairs in a table indexed by the two ids (`workloads/bpe-encode/`).
+  For the matrix-vector product the main cause is the `and` with the array's mask that every `Array.get` keeps
+  (`repros/dot_mask.bend`, bendlang/bend#1781); for `softmax-ce` it is tensor-array walking each row as a list (fixed
+  in tensor-array 0.1.17.0, which this corpus measured first).
+- **Threads**, on 2.0.40 (`results/2026-11-06-2.0.40/`): every workload gives the same bytes at 1 and 16 threads. At
+  16 threads `matvec-bands` runs 4.86x faster, `block-step` 4.66x, `attention-step` 4.06x and `gemm-fork` 2.24x;
+  `mnist-fork` gains 1.17x and `mnist-step` 1.10x. `gemm-tile8` (0.98x) is tensor-array's sequential product
+  (`gemm-fork` is its parallel twin); `softmax-ce`, `adamw`, `rmsnorm-step` and `bpe-encode` run their loops one
+  after another (0.99-1.01x); the three file reads and `softmax-ce-array` get slower (0.69-0.95x).
 
-![Two bar charts. Top: Bend 2.0.39 needs 1.20x the CPU cycles of handwritten C for the AdamW step, 1.33x for the matrix product, 1.96x for the MNIST step, 2.32x for the matrix-vector product, 4.75x for softmax and cross-entropy and 21x for the file read. Bottom: on 16 threads the transformer block runs 4.49x faster than on one, the matrix-vector product 4.21x, attention 3.67x and the parallel matrix product 2.17x; the other seven gain nothing (1.00-1.04x) or get slower (the two file reads, 0.90x and 0.83x).](docs/results-2.0.39.svg)
+![Two bar charts. Top: Bend 2.0.40 against handwritten C in CPU cycles, from 1.09x for softmax and cross-entropy over the array, 1.13x for the AdamW step and 1.30x for the matrix product, to 2.32x for the matrix-vector product, 4.47x for softmax and cross-entropy, 19x for the built-in file read and 611x for the BPE tokenizer. Bottom: on 16 threads the matrix-vector product runs 4.86x faster than on one, the transformer block 4.66x, attention 4.06x and the parallel matrix product 2.24x; the others gain little or nothing, and the file reads get slower.](docs/results-2.0.40.svg)
 
 The chart is drawn from the raw runs by `python3 -I scripts/chart.py`.
 
