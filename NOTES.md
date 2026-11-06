@@ -483,3 +483,13 @@ An upstream draft is in my private notes. Upstream main still has both.
 - Threads: the same bytes at 1 and 16; `matvec-bands` 4.86x, `block-step` 4.66x, `attention-step` 4.06x, `gemm-fork`
   2.24x (4.33x, 4.08x, 3.52x, 2.05x on 2.0.39 in this run).
 - `docs/results-2.0.40.svg` is the README's chart now.
+
+## 2026-11-06: the working pin to 2.0.40
+
+- `scripts/bump_bend.sh 2.0.40` (the two Linux SHA256 are the release's asset digests): `setup.sh`, `check_oracles.sh`'s
+  `PIN`, CLAUDE.md, the Makefile, CI's step, the README, and run.sh's default range, now 2.0.35-2.0.40. bend-ml,
+  llama.bend and BendTorch moved the same morning, and `~/.bend` is the 2.0.40 release (2.0.39 in `~/.bend-2.0.39`).
+- On 2.0.40: `make check` 45 runs and `make check-gpu` 9 runs, every hash its oracle (`oracles.tsv` unchanged); `make
+  laws` ten laws, 22 mutants refused; `make mutate` 70 mutants as expected (64 caught, the same 6 survive); `make test`
+  111. Two tests named 2.0.39 (the bump script's and the GPU check's fake compiler); they now read the pin from the
+  repository, and the bump test moves it one release past the real one.
