@@ -4,7 +4,8 @@
 #   scripts/preflight.sh --env    # the same as key/value lines for env.tsv (run.sh), and a last line `busy`; exits 0
 # The checks: the one-minute load average under MAX_LOAD (2.0; the runs of record started at 0.9-1.4), read first so
 # the other checks' processes do not count in it; mains power; the power profile `performance`; no other Bend compiler
-# or agent running (bend, a source build's bend2/main.ts, opencode, claude, codex); perf_event_paranoid at most 1
+# or agent running (bend, a source build's bend2/main.ts, opencode, claude, codex; with AGENTS_IDLE_OK=1 an agent whose
+# process tree is idle passes, below); perf_event_paranoid at most 1
 # (run.sh counts kernel-mode events too); and the SMT sibling of CPU (3, as in run.sh) idle over PREFLIGHT_SAMPLE
 # seconds (1), under 10% of its time busy, since run.sh pins one thread to that CPU and the sibling shares its core.
 # The check is named after the CPU (cpu3_sibling).
@@ -41,11 +42,42 @@ profile=$(powerprofilesctl get 2>/dev/null || echo unknown)
 check power_profile "$profile" "$([ "$profile" = performance ] && echo ok || echo busy)"
 
 # other compilers and agents, by command name (a source build of Bend is bun running bend2/main.ts)
-others=$(ps -eo pid=,comm=,args= 2>/dev/null | awk -v self=$$ '
+plist=$(ps -eo pid=,comm=,args= 2>/dev/null)
+others=$(awk -v self=$$ '
   $1 == self {next}
   $2 ~ /^(bend|claude|codex.*|opencode.*)$/ || $0 ~ /bend2\/main\.ts/ {n[$2]++}
-  END {for (c in n) printf "%s%s x%d", (s++ ? ", " : ""), c, n[c]}')
-check other_processes "${others:-none}" "$([ -z "$others" ] && echo ok || echo busy)"
+  END {for (c in n) printf "%s%s x%d", (s++ ? ", " : ""), c, n[c]}' <<< "$plist")
+# AGENTS_IDLE_OK=1 (Renan, 2026-11-06): an agent session left open and idle does not make the machine busy. Its whole
+# process tree (every descendant, so a build it runs counts) must use under AGENT_MAX_PCT percent of one CPU (2) over
+# AGENT_SAMPLE seconds (SAMPLE), from utime + stime in $PROC/<pid>/stat. A Bend compiler still makes it busy.
+agents_idle() {  # prints "idle <pct>%" and succeeds, or prints "<pct>%" and fails
+  local pids ticks0 ticks1 tck pct
+  pids=$(awk '$2 ~ /^(claude|codex.*|opencode.*)$/ {print $1}' <<< "$plist")
+  [ -n "$pids" ] || return 1
+  tree_ticks() {  # utime + stime of the agents and every descendant, in clock ticks
+    awk -v roots="$pids" '
+      FNR == 1 { s = $0; sub(/^.*\) /, "", s); split(s, f, " "); p = FILENAME; sub(/\/stat$/, "", p); sub(/^.*\//, "", p)
+                 ppid[p] = f[2]; t[p] = f[12] + f[13] }
+      END { n = split(roots, r, " "); for (i = 1; i <= n; i++) in_tree[r[i]] = 1
+            do { grew = 0; for (p in ppid) if (!(p in in_tree) && (ppid[p] in in_tree)) { in_tree[p] = 1; grew = 1 } } while (grew)
+            for (p in in_tree) sum += t[p]; print sum + 0 }' "$PROC"/[0-9]*/stat 2>/dev/null
+  }
+  ticks0=$(tree_ticks); sleep "${AGENT_SAMPLE:-$SAMPLE}"; ticks1=$(tree_ticks)
+  tck=$(getconf CLK_TCK 2>/dev/null || echo 100)
+  pct=$(awk -v d=$((ticks1 - ticks0)) -v h="$tck" -v s="${AGENT_SAMPLE:-$SAMPLE}" 'BEGIN {printf "%.1f", 100 * d / h / s}')
+  if awk -v p="$pct" -v m="${AGENT_MAX_PCT:-2}" 'BEGIN {exit !(p < m)}'; then echo "idle $pct%"; else echo "$pct%"; fi
+  awk -v p="$pct" -v m="${AGENT_MAX_PCT:-2}" 'BEGIN {exit !(p < m)}'
+}
+compilers=$(awk -v self=$$ '$1 != self && ($2 == "bend" || $0 ~ /bend2\/main\.ts/)' <<< "$plist")
+if [ -n "$others" ] && [ "${AGENTS_IDLE_OK:-0}" = 1 ] && [ -z "$compilers" ]; then
+  if a=$(agents_idle); then
+    check other_processes "$others, agents $a" ok
+  else
+    check other_processes "$others, agents $a" busy
+  fi
+else
+  check other_processes "${others:-none}" "$([ -z "$others" ] && echo ok || echo busy)"
+fi
 
 paranoid=$(cat "$PROC/sys/kernel/perf_event_paranoid" 2>/dev/null || echo unknown)
 check perf_event_paranoid "$paranoid" "$([[ $paranoid =~ ^-?[0-9]+$ ]] && [ "$paranoid" -le 1 ] && echo ok || echo busy)"
