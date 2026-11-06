@@ -450,7 +450,7 @@ printed the oracle's hash.
 
 An upstream draft is in my private notes. Upstream main still has both.
 
-## The preflight and idle agent sessions (2026-11-06)
+## 2026-11-06: the preflight and idle agent sessions
 
 - Until today any `claude`, `codex` or `opencode` process made the machine busy, so an agent session left open and
   idle turned a run of record into a diagnosis (the 2.0.40 run of 00:54, two idle sessions open, load 0.00). Renan's
@@ -465,3 +465,21 @@ An upstream draft is in my private notes. Upstream main still has both.
   waits with `AGENT_SAMPLE=10 AGENT_MAX_PCT=10`, 10% of one CPU being under 0.5% of the machine, on cores other
   than the pinned one. Its first two starts stopped at `make check-gpu`: `check_oracles.sh` wants its pinned Bend
   2.0.39 and `~/.bend` is 2.0.40 since that morning, so the unit sets `BEND=~/.bend-2.0.39/bin/bend`.
+
+## 2026-11-06: the 2.0.40 run of record (`results/2026-11-06-2.0.40/`, 11:19-11:34)
+
+- `scripts/launch.sh 2.0.40` through `scripts/when_idle.sh`, as a user unit, with `AGENTS_IDLE_OK=1`: the preflight
+  found the machine idle (load 0.50, two Claude Code sessions open at 1.3% of one CPU, CPU 3's sibling at 0%), and
+  `results/2026-11-06-2.0.40/` is the run of record; the diagnosis of 00:54 stays as `-diagnosis`. 81 cases, every hash
+  its oracle; `make check-gpu` with the pinned 2.0.39 (`BEND=~/.bend-2.0.39/bin/bend`).
+- Against 2.0.39, 5 rounds: fewer instructions on 12 of the 15 workloads (`rmsnorm-step` -29.42% and -30.22% cycles,
+  `read-bf16` -40.53% and -17.15%, `softmax-ce-array` -8.45%, `mnist-fork` -5.90%, `adamw` -5.84%); `read-binary`
+  unchanged; `gemm-fork` +0.90% instructions (+2.97% cycles, within its noise); `bpe-encode` +9.26% instructions and
+  +28.89% cycles, the same as the diagnosis (+9.3%, +28.1%): its cause, bendlang/bend#1978 and #2036, is in the entry
+  above. On the GPU, `block-step`'s kernels 205.9 to 179.3 ms (-12.93%), `gemm-tile8` and `rmsnorm-step` within noise.
+- The #1781 probe on 2.0.40: the gemm with unchecked reads 10,194.7 M instructions and 2,339-2,349 M cycles against
+  13,443.7 M and 2,906-2,928 M checked, and C's 8,121.9 M and 2,242-2,249 M (1.04x C's cycles against 1.30x); the dot
+  product's in-range unchecked loop 299-304 M cycles against 513-517 M checked and C's 288-291 M (1.04x against 1.78x).
+- Threads: the same bytes at 1 and 16; `matvec-bands` 4.86x, `block-step` 4.66x, `attention-step` 4.06x, `gemm-fork`
+  2.24x (4.33x, 4.08x, 3.52x, 2.05x on 2.0.39 in this run).
+- `docs/results-2.0.40.svg` is the README's chart now.
