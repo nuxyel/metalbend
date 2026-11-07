@@ -4,8 +4,8 @@
 # (.github/workflows/track.yml) runs it on GitHub's runners for each new release of bendlang/bend, one job a workload.
 #   scripts/track.sh v2.0.39 v2.0.40                    # every workload, into build/track/v2.0.39-v2.0.40/
 #   scripts/track.sh v2.0.39 v2.0.40 bpe-encode adamw   # some
-#   scripts/track.sh --next v2.0.39                     # the comparison after release v2.0.39 ("v2.0.39 v2.0.40"), or nothing
-#   scripts/track.sh --previous v2.0.40                 # the release before v2.0.40
+#   scripts/track.sh --next v2.0.39       # the comparison after release v2.0.39 ("v2.0.39 v2.0.40"), or nothing
+#   scripts/track.sh --previous v2.0.40   # the release before v2.0.40
 # OUT names the folder: counts.tsv (count.sh's rows, both Bends), env.tsv, then track_verdict.py's verdict.tsv and
 # report.md, and issue.md with issue-title.txt on a regression or a changed output. RUN and STORE give the report a
 # run's URL and the counts' place on the data branch. Releases are bendlang/bend's tags vX.Y.Z in version order
