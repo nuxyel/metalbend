@@ -518,5 +518,6 @@ An upstream draft is in my private notes. Upstream main still has both.
   `read-binary` and `read-native` the same. The runner's clang moves some counts against this machine's perf ones
   (`gemm-fork` -2.65% here, +0.90% in the run of record; `read-native` +0.00% here, -2.10% under Cachegrind with clang
   23.1.3 here), which is why the watch compares two Bends on one runner only.
-- `make test` 133, from 111 (count.sh with a fake Bend and valgrind, track.sh's lookups, track_verdict.py); `make mutate` 75
-  mutants (five new ones on count.sh and track_verdict.py, all caught). For 1.1.0, with the next release.
+- `make test` 133, from 111 (count.sh with a fake Bend and valgrind, track.sh's lookups, track_verdict.py);
+  `make mutate` 75 mutants (five new ones on count.sh and track_verdict.py, all caught). For 1.1.0, with the next
+  release.
