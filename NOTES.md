@@ -493,3 +493,30 @@ An upstream draft is in my private notes. Upstream main still has both.
   laws` ten laws, 22 mutants refused; `make mutate` 70 mutants as expected (64 caught, the same 6 survive); `make test`
   111. Two tests named 2.0.39 (the bump script's and the GPU check's fake compiler); they now read the pin from the
   repository, and the bump test moves it one release past the real one.
+
+## 2026-11-07: the release watch (Cachegrind on GitHub's runners)
+
+- `scripts/count.sh <Bend> <workload>`: a Bend from a ref (`scripts/bend_main.sh`, now with `BIN` for the wrapper's
+  path), a binary or a source tree; the workload built once into `build/count/<commit>/`, run on one thread under
+  `valgrind --tool=cachegrind --cache-sim=yes` with the caches given explicitly, and one row: instructions, simulated
+  D1 and last-level misses, the hash against `oracles.tsv`. Under `env -i` with a fixed environment: on this machine
+  `HEADER=1` alone in the environment moved `read-native`'s count by 241 instructions (the environment's size moves
+  the stack); with it fixed the count repeats exactly whatever the caller's environment.
+- `scripts/track.sh <old> <new> [workloads]`: both Bends built once, every workload counted with each, then
+  `scripts/track_verdict.py`: a finding beyond 0.1% in instructions or 5% in D1 misses, or an output that is not its
+  oracle; regression, improvement, mixed, same, bits, no-baseline, missing. `--next` and `--previous` read
+  bendlang/bend's release tags in version order.
+- `.github/workflows/track.yml`: daily, the first release after `track/last-tag` on the new `data` branch (it starts at
+  v2.0.40) against the release before it; one job a workload, both Bends in the job, the counts appended to `track/`
+  and an issue here on a regression or a changed output; by hand with any refs. `docs/format.md` has `track/`.
+  `workflow_dispatch` needs the file on `main`, so before the release it ran from a throwaway branch with a push
+  trigger once (to register it), then by its id on `devel`.
+- The replay, v2.0.39 against v2.0.40 on all 15 workloads (run 42377905816, ubuntu-24.04, clang 18.1.3, valgrind
+  3.22.0, `track/runs/2026-11-07-v2.0.39-v2.0.40/`): every output its oracle; `bpe-encode` the one regression,
+  instructions +9.42% and D1 misses 2.03x (195,729 M to 214,161 M; 1,108 M to 2,246 M); 12 improvements (`read-bf16`
+  -22.47%, `mnist-fork` -10.61%, `rmsnorm-step` -9.25%, `mnist-step` -8.10%, `softmax-ce-array` -4.94% the largest);
+  `read-binary` and `read-native` the same. The runner's clang moves some counts against this machine's perf ones
+  (`gemm-fork` -2.65% here, +0.90% in the run of record; `read-native` +0.00% here, -2.10% under Cachegrind with clang
+  23.1.3 here), which is why the watch compares two Bends on one runner only.
+- `make test` 133, from 111 (count.sh with a fake Bend and valgrind, track.sh's lookups, track_verdict.py); `make mutate` 75
+  mutants (five new ones on count.sh and track_verdict.py, all caught). For 1.1.0, with the next release.
