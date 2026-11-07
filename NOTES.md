@@ -597,5 +597,5 @@ An upstream draft is in my private notes. Upstream main still has both.
   spin"), 0.26x the instructions at that commit and over the range, 4 steps over 24 commits in 6 min; `spin_8`
   49.1 G to none, the program's `cpar` +8.3 G and a new `spin_26` +4.3 G (2.0.33 numbers its spins anew, so the
   per-function table pairs some of them by name only).
-- `make test` 147, from 133; `make mutate` 79 mutants (four new ones on `bisect_report.py`, all caught). For 1.1.0,
-  with the release watch.
+- `make test`: 14 more tests (`tests/test_bisect.py`; 157 with the history's); `make mutate` 79 mutants (four new
+  ones on `bisect_report.py`, all caught). For 1.1.0, with the release watch.
