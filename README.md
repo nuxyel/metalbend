@@ -168,6 +168,27 @@ one thread and no GPU, and it counts the binaries the runner's clang builds, so 
 runner and never stand next to the perf counts of `results/`. Cycles, 16 threads and the GPU stay with `release.sh`
 on an idle machine.
 
+### Bisect
+
+A regression or a changed output is then bisected. `scripts/bisect.sh` runs `git bisect` over bendlang/bend's
+commits between the two releases; each step builds Bend from source at that commit and counts the workload once
+under Cachegrind, and a commit is bad when its count is nearer the new release's than the old one's. The report names
+the first bad commit and its pull request, gives Cachegrind's counts per function at that commit and at its parent,
+and diffs the C the two Bends emit for the workload, by definition. The release watch runs it on GitHub's runners
+(`.github/workflows/bisect.yml`), keeps the report in `track/regressions/` on the `data` branch, and names the commit in
+the issue it opens; it posts nothing on bendlang/bend.
+
+```sh
+scripts/bisect.sh bpe-encode v2.0.39 v2.0.40 ir   # instructions; d1 for the simulated D1 misses, bits for the output
+```
+
+Replayed on `bpe-encode` from 2.0.39 to 2.0.40, it finds both causes of that regression by itself, over 118 commits:
+bendlang/bend#1978 for the instructions (+7.84% at that commit; `span_fade` the function that moved, and the C of
+`span_fade` and `ctr_take` the definitions that changed) in 7 steps, and #2036 for the simulated D1 misses (2.03x, in
+the workload's `bump_go` and the runtime's `rfc_wrap`) in 6 more, both in one job of 1 h 56 min on a runner. On
+`gemm-fork`, the drop to 0.26x the instructions from 2.0.32 to 2.0.33 is #1155 (4 steps over 24 commits, 6 minutes).
+The three reports are in `track/regressions/` on the `data` branch.
+
 ## The history
 
 The same counts, back to Bend 2.0.32: `.github/workflows/history.yml` counts every workload on every release from
@@ -213,15 +234,15 @@ python3 -I scripts/history_chart.py <folder>     # docs/history.svg
 make setup     # Bend 2.0.40 (checked by SHA256), then clang and Python 3 checked
 make check     # every workload on 1 and 16 threads and every C target, against oracles.tsv
 make check-gpu # every GPU target on the GPU and with --gpu off on 1 and 16 threads; skips if there is no GPU
-make test      # analyze.py, scripts/chart.py, oracle_diff.py, run.sh's guard and PMU choice, the GPU lane's skip, release.sh on a fake upstream, count.sh, track_verdict.py and the history's scripts on fakes
+make test      # analyze.py, scripts/chart.py, oracle_diff.py, run.sh's guard and PMU choice, the GPU lane's skip, release.sh on a fake upstream, count.sh, track_verdict.py, bisect.sh and the history's scripts on fakes
 make laws      # the ten laws (with --verdict) and their 22 mutants, each refused
 make mutate    # break the corpus and the tools on purpose; every mutant must be caught
 ```
 
 `oracles.tsv` holds each workload's hash, as `run.sh` records it, from a run where every version and every C target
 printed it. CI runs all but `make check-gpu` on every push, bits only (GitHub's runners cannot count with `perf`, and
-have no GPU). `make check-gpu` is local: with no toolkit or no GPU it says why and passes. `make mutate` has 75
-mutants: 69 caught, and 6 that survive with their reason written next to them (five compute the same bits, one changes
+have no GPU). `make check-gpu` is local: with no toolkit or no GPU it says why and passes. `make mutate` has 79
+mutants: 73 caught, and 6 that survive with their reason written next to them (five compute the same bits, one changes
 what no run reaches). The three block workloads print a hash of their final weights and AdamW moments after the
 losses, so one rounding changed inside a layer (SiLU's, say) is caught even when every loss keeps its bits.
 
