@@ -113,7 +113,7 @@ class Arithmetic(unittest.TestCase):
         spans = br.c_spans(old)
         self.assertEqual([s[0] for s in spans], ["span_fade", "ctr_take", "WL_FID_main_c0"])
         changes = {c[0]: (c[1], c[2]) for c in br.c_changes(old, new)}
-        self.assertEqual(changes, {"span_fade": (1, 1), "WL_FID_main_c0": (1, 1), "(outside any function)": (1, 1)})
+        self.assertEqual(changes, {"span_fade": (1, 1), "WL_FID_main_c0": (1, 1), "(top-level)": (1, 1)})
 
     def test_plan_from_a_verdict(self):
         p = self.d / "verdict.tsv"
