@@ -1,0 +1,12 @@
+# bad: [c05efd9570d542b433b4762ba2978e0177708e5f] Bend 2.0.33: two copies of one term are equal before either unfolds (#1071, PR #1151 by Giulio2002)
+# good: [573002f01ec6c52416d44489543f69a9625facf8] Bend 2.0.32: the issue triage, root fixes, one verdict everywhere
+git bisect start '--no-checkout' 'c05efd9570d542b433b4762ba2978e0177708e5f' '573002f01ec6c52416d44489543f69a9625facf8'
+# bad: [cb029ebe7bc4c4d76e08d73081ee8741e8ded92b] Update README.md
+git bisect bad cb029ebe7bc4c4d76e08d73081ee8741e8ded92b
+# good: [a0627e0a1de03d666fa2bf7e5ab3a12a140beada] Effects build their Result through io_res, one macro in the Io section, and print and write lose their one-use adapters (#1039)
+git bisect good a0627e0a1de03d666fa2bf7e5ab3a12a140beada
+# bad: [ef66a7ccf5d0d48478f33736a4c5bef48d439e74] A shared Array's redirect is read without a race and without an atomic on the device, once per spin (#1155)
+git bisect bad ef66a7ccf5d0d48478f33736a4c5bef48d439e74
+# good: [6de56b973213b3cbea0cebcf1fe82a482d75181a] Base says the same with fewer helpers, and U32.log2 takes five native shifts instead of thirty-two (#1153)
+git bisect good 6de56b973213b3cbea0cebcf1fe82a482d75181a
+# first 'bad' commit: [ef66a7ccf5d0d48478f33736a4c5bef48d439e74] A shared Array's redirect is read without a race and without an atomic on the device, once per spin (#1155)

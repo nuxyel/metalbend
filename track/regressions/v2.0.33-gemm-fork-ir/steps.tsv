@@ -1,0 +1,5 @@
+commit	verdict	ir	d1_misses	bits	why	subject
+cb029ebe7bc4c4d76e08d73081ee8741e8ded92b	bad	13321507673	358850796	ok	instructions 0.26x from the good end (0.26x at the bad end)	Update README.md
+a0627e0a1de03d666fa2bf7e5ab3a12a140beada	good	50696482359	358952505	ok	instructions +0.00% from the good end (0.26x at the bad end)	Effects build their Result through io_res, one macro in the Io section, and print and write lose their one-use adapters (#1039)
+ef66a7ccf5d0d48478f33736a4c5bef48d439e74	bad	13321507673	358850796	ok	instructions 0.26x from the good end (0.26x at the bad end)	A shared Array's redirect is read without a race and without an atomic on the device, once per spin (#1155)
+6de56b973213b3cbea0cebcf1fe82a482d75181a	good	50696482335	358952505	ok	instructions -0.00% from the good end (0.26x at the bad end)	Base says the same with fewer helpers, and U32.log2 takes five native shifts instead of thirty-two (#1153)
