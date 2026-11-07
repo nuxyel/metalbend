@@ -1,5 +1,5 @@
 """scripts/history_chart.py on synthetic counts: one chart a workload ordered by its change, the change labeled, a
-band where a workload does not build, a triangle where a count moved beyond 0.1%, and a line below the floor cut."""
+band where a workload does not build, a triangle where a count moved beyond 0.1%, and each chart on its own scale."""
 import subprocess
 import sys
 import tempfile
@@ -37,14 +37,14 @@ class Chart(unittest.TestCase):
         self.assertEqual(svg.count('class="down"'), 2)     # the key's and adamw's step to 2.0.10
         self.assertEqual(svg.count('class="up"'), 2)       # the key's and read-bf16's step to 2.0.11
         self.assertEqual(svg.count('class="gapband"'), 2)  # the key's and read-bf16 on 2.0.9
-        self.assertNotIn('class="cut"', svg)
 
-    def test_a_line_below_the_floor_is_cut(self):
-        svg, _ = self.draw([count("v2.0.9", "softmax-ce", 1000), count("v2.0.10", "softmax-ce", 350)])
-        self.assertIn('class="cut"', svg)
-        self.assertIn(">−65.0%</text>", svg)
-        self.assertIn("is cut there", svg)
-
+    def test_each_chart_on_its_own_scale(self):
+        svg, _ = self.draw([count("v2.0.9", "softmax-ce", 1000), count("v2.0.10", "softmax-ce", 350),
+                            count("v2.0.9", "adamw", 1000), count("v2.0.10", "adamw", 990)])
+        self.assertIn(">\u221265.0%</text>", svg)
+        self.assertIn(">\u221280%</text>", svg)    # softmax-ce's scale reaches its drop
+        self.assertIn(">\u221210%</text>", svg)    # adamw's 1% keeps at least -10% to +5%
+        self.assertIn(">+5%</text>", svg)
 
 if __name__ == "__main__":
     unittest.main()
