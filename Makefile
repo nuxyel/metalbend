@@ -19,7 +19,7 @@ check:            ## build every workload (1 and 16 threads) and every native.c,
 check-gpu:        ## local, CI has no GPU: every gpu.bend built with CUDA, on the GPU and with --gpu off (1, 16 threads); skips with no GPU
 	TARGETS=gpu scripts/check_oracles.sh
 
-test:             ## analyze.py, chart.py, oracle_diff.py, run.sh's guard and the GPU lane's skip on synthetic runs; release.sh on a fake upstream (needs bun); count.sh, track.sh, track_verdict.py and bisect.sh on fakes
+test:             ## analyze.py, chart.py, oracle_diff.py, run.sh's guard and the GPU lane's skip on synthetic runs; release.sh on a fake upstream (needs bun); count.sh, track.sh, track_verdict.py, bisect.sh and the history's scripts on fakes
 	$(PY) -m unittest discover -s tests -v
 
 laws:             ## the ten laws of laws/ check (with --verdict) and each of their 22 mutants is refused
