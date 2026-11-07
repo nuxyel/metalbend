@@ -4,9 +4,11 @@ name: Release watch
 # bendlang/bend after the last one it compared (track/last-tag on the data branch); on one, every workload is built
 # with that release and the release before it, from source, and both are counted in one job on one runner
 # (scripts/track.sh), a job a workload. Instructions beyond 0.1%, simulated D1 misses beyond 5% or an output that is
-# not its oracle are findings (scripts/track_verdict.py). The counts go to track/ on the data branch; a regression or
-# a changed output opens an issue in this repository. Nothing is posted on bendlang/bend. By hand, any two refs, with
-# the counts recorded and no issue unless asked; an empty `new` takes the daily path, from `last` if given.
+# not its oracle are findings (scripts/track_verdict.py). The counts go to track/ on the data branch; each regression
+# or changed output is bisected over the commits between the two releases (bisect.yml, scripts/bisect.sh), and an
+# issue in this repository names them, with the commits found. Nothing is posted on bendlang/bend. By hand, any two
+# refs, with the counts recorded and no bisect or issue unless asked; an empty `new` takes the daily path, from `last`
+# if given.
 on:
   schedule:
     - cron: "23 7 * * *"   # daily, on main
@@ -30,6 +32,10 @@ on:
         default: true
       open_issue:
         description: "open an issue here on a regression or a changed output"
+        type: boolean
+        default: false
+      bisect:
+        description: "bisect each regression or changed output (bisect.yml), as the daily run does"
         type: boolean
         default: false
 
@@ -133,14 +139,15 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write   # the data branch
-      issues: write     # an issue here on a finding
+    outputs:
+      bisect: ${{ steps.verdict.outputs.bisect }}
+      issue: ${{ steps.verdict.outputs.issue }}
     env:
       OLD: ${{ needs.plan.outputs.old }}
       NEW: ${{ needs.plan.outputs.new }}
       DAILY: ${{ needs.plan.outputs.daily }}
       WORKLOADS: ${{ join(fromJSON(needs.plan.outputs.workloads), ' ') }}
       RECORD: ${{ github.event_name == 'schedule' || inputs.record }}
-      OPEN_ISSUE: ${{ github.event_name == 'schedule' || inputs.open_issue }}
       RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - uses: actions/checkout@v7
@@ -181,14 +188,10 @@ jobs:
           [ "$RECORD" = true ] && store_note=(--store "track/runs/$folder/")
           python3 -I scripts/track_verdict.py out/counts.tsv "$OLD" "$NEW" out --run "$RUN" "${store_note[@]}" \
             --expect "$WORKLOADS" | tee out/verdict.txt
-          {
-            cat out/report.md
-            if [ -f out/issue.md ]; then
-              echo; echo "## The issue for this run"; echo
-              if [ "$OPEN_ISSUE" = true ]; then echo "Opened below (open_issue)."; else echo "Not opened (open_issue is off)."; fi
-              echo; echo "**$(cat out/issue-title.txt)**"; echo; cat out/issue.md
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          cat out/report.md >> "$GITHUB_STEP_SUMMARY"
+          # the bisects a regression or a changed output asks for, and whether there is an issue to write
+          echo "bisect=$(python3 -I scripts/bisect_report.py plan out/verdict.tsv)" >> "$GITHUB_OUTPUT"
+          echo "issue=$([ -f out/issue.md ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
       - name: Record on the data branch
         if: env.RECORD == 'true'
@@ -217,14 +220,86 @@ jobs:
           git commit -q -m "track: Bend $NEW against $OLD ($trigger, $found moved, $flagged for an issue)"
           git push -q origin HEAD:data
 
-      - name: Open the issue
-        if: env.OPEN_ISSUE == 'true' && hashFiles('out/issue.md') != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh issue create -R "$GITHUB_REPOSITORY" --title "$(cat out/issue-title.txt)" --body-file out/issue.md
-
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: track-verdict
           path: out/
+
+  bisect:
+    name: bisect
+    needs: [plan, gather]
+    if: >-
+      always() && needs.gather.result == 'success' && needs.gather.outputs.bisect != '[]' &&
+      (github.event_name == 'schedule' || inputs.bisect)
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.gather.outputs.bisect) }}
+    permissions:
+      contents: write   # bisect.yml records its report on the data branch
+    uses: ./.github/workflows/bisect.yml
+    with:
+      workload: ${{ matrix.workload }}
+      good: ${{ needs.plan.outputs.old }}
+      bad: ${{ needs.plan.outputs.new }}
+      metrics: ${{ matrix.metrics }}
+      record: ${{ github.event_name == 'schedule' || inputs.record }}
+
+  issue:
+    name: issue
+    needs: [plan, gather, bisect]
+    if: always() && needs.gather.result == 'success' && needs.gather.outputs.issue == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write     # an issue here on a finding
+    env:
+      OPEN_ISSUE: ${{ github.event_name == 'schedule' || inputs.open_issue }}
+      RECORD: ${{ github.event_name == 'schedule' || inputs.record }}
+      BISECTED: ${{ needs.bisect.result }}
+      RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: track-verdict
+          path: verdict
+
+      - uses: actions/download-artifact@v7
+        continue-on-error: true   # no bisect ran
+        with:
+          pattern: bisect-*
+          path: bisects
+
+      - name: The issue's text
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp verdict/issue.md issue.md
+          mapfile -t reports < <(ls bisects/*/*/report.tsv 2> /dev/null || true)
+          if [ ${#reports[@]} -gt 0 ]; then
+            { echo; python3 -I scripts/bisect_report.py issue "${reports[@]}"; } >> issue.md
+            if [ "$RECORD" = true ]; then
+              { echo; echo "Each bisect's report: \`track/regressions/\` on the \`data\` branch, and the run's artifacts."; } >> issue.md
+            fi
+          elif [ "$BISECTED" = failure ] || [ "$BISECTED" = cancelled ]; then
+            { echo; echo "The bisect did not finish: $RUN."; } >> issue.md
+          fi
+          {
+            echo "## The issue for this run"; echo
+            if [ "$OPEN_ISSUE" = true ]; then echo "Opened (open_issue)."; else echo "Not opened (open_issue is off)."; fi
+            echo; echo "**$(cat verdict/issue-title.txt)**"; echo; cat issue.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open the issue
+        if: env.OPEN_ISSUE == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue create -R "$GITHUB_REPOSITORY" --title "$(cat verdict/issue-title.txt)" --body-file issue.md
