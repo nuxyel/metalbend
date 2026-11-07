@@ -563,3 +563,39 @@ An upstream draft is in my private notes. Upstream main still has both.
   ```
 - `make test`: 10 more tests (history.sh on fake Bends, history_report.py, history_chart.py). For 1.1.0, with the next
   release.
+
+## 2026-11-07: the bisect (`scripts/bisect.sh`, `.github/workflows/bisect.yml`)
+
+- `scripts/bisect.sh <workload> <good> <bad> [ir|d1|bits]`: `git bisect run` in a `--no-checkout` worktree of the
+  bendlang/bend clone, each step `scripts/bend_main.sh` at the commit and one `scripts/count.sh`, judged by
+  `scripts/bisect_report.py`: bad when the count is nearer the bad end's than the good end's (more than half the
+  way), so a commit that moves a little does not decide a bisect over a big change, and an improvement bisects the same
+  way; a commit whose Bend or workload does not build, or whose output is not its oracle, is skipped (for `bits`, a
+  changed output is bad). The counts are shared between the metrics of one run. Then the report: the commit, its pull
+  request (`gh api`), Cachegrind's counts per function at the parent and at the commit, and the C both emit for the
+  workload, diffed by definition (a top-level definition, or a `WL_CASE` block for the program's own functions).
+  `git bisect run` hands the step the bisect's repository in `GIT_DIR`; the step clears it, or every count would name
+  the bisect's HEAD as its commit.
+- `bisect.yml`: by hand or called by `track.yml`, which now bisects every regression or changed output it finds (the
+  metrics that went up) and opens the issue after, naming the commits. The issue names the pull request in a code
+  span, not a link: a link from an issue would put a "mentioned this" on its timeline in bendlang/bend. Registered for
+  `workflow_dispatch` from a throwaway branch whose push run skips, as `track.yml` was. `track.yml`'s gather found no
+  counts when one workload ran: download-artifact puts a single artifact straight into its folder; it finds them now
+  wherever they are.
+- On this machine first (busy; Cachegrind's counts do not mind): `rmsnorm-step` from v2.0.39 to v2.0.40, instructions
+  -28.58% with clang 23.1.3, is bendlang/bend#1928 (`blk_new`'s fill vectorized), 7 steps over 118 commits in 3 min.
+- On a runner (ubuntu-24.04, clang 18.1.3, valgrind 3.22.0), from `track.yml` on `bpe-encode` (run 42384646460, the
+  bisect 1 h 56 min, `track/regressions/v2.0.40-bpe-encode-{ir,d1}/`):
+  - instructions: 0d35f6da (#1978, "On Metal, the shared-node half of a take is a call"), +7.84% at that commit,
+    +9.42% over the range, 7 steps; `span_fade` 1.11 G to 28.05 G instructions, the workload's `bump_go` -10.2 G and
+    `peek` -0.94 G; the C changed in `span_fade` and `ctr_take`.
+  - D1 misses: 3c1f0d3a (#2036, "a wide def's boxed record stays boxed until a use needs it"), 2.03x at that commit
+    and over the range, 6 steps; `bump_go` +552 M, `rfc_wrap` +393 M, `bump_go`'s continuation +165 M; the C changed
+    in `bump_go`, `count_go`, `merge_go` and their continuations.
+- `gemm-fork` from v2.0.32 to v2.0.33 (run 42387765688, by hand, `track/regressions/v2.0.33-gemm-fork-ir/`):
+  ef66a7cc (#1155, "A shared Array's redirect is read without a race and without an atomic on the device, once per
+  spin"), 0.26x the instructions at that commit and over the range, 4 steps over 24 commits in 6 min; `spin_8`
+  49.1 G to none, the program's `cpar` +8.3 G and a new `spin_26` +4.3 G (2.0.33 numbers its spins anew, so the
+  per-function table pairs some of them by name only).
+- `make test` 147, from 133; `make mutate` 79 mutants (four new ones on `bisect_report.py`, all caught). For 1.1.0,
+  with the release watch.
