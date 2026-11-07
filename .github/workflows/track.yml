@@ -177,12 +177,14 @@ jobs:
           while [ -e "store/track/runs/$folder" ]; do n=$((n + 1)); folder=$base-$n; done
           echo "folder=$folder" >> "$GITHUB_OUTPUT"
           mkdir -p out
-          { scripts/count.sh --header; for f in parts/*/out/counts.tsv; do tail -n +2 "$f"; done; } > out/counts.tsv
-          first=$(ls parts/*/out/env.tsv | head -1)
-          { grep -v -E '^(date|cpu|run)\b' "$first"
+          # one artifact a job; download-artifact puts each under parts/<name>/, or a single one straight in parts/
+          mapfile -t counts < <(find parts -path '*out/counts.tsv' | sort)
+          mapfile -t envs < <(find parts -path '*out/env.tsv' | sort)
+          { scripts/count.sh --header; for f in "${counts[@]}"; do tail -n +2 "$f"; done; } > out/counts.tsv
+          { grep -v -E '^(date|cpu|run)\b' "${envs[0]}"
             echo -e "date\t$(date -Is)"
-            echo -e "cpus\t$(cut -f2 <(grep -h '^cpu\b' parts/*/out/env.tsv) | sort -u | paste -sd ';')"
-            echo -e "jobs\t$(ls parts/*/out/env.tsv | wc -l)"
+            echo -e "cpus\t$(cut -f2 <(grep -h '^cpu\b' "${envs[@]}") | sort -u | paste -sd ';')"
+            echo -e "jobs\t${#envs[@]}"
             echo -e "run\t$RUN"; } > out/env.tsv
           store_note=()
           [ "$RECORD" = true ] && store_note=(--store "track/runs/$folder/")
@@ -283,7 +285,8 @@ jobs:
         run: |
           set -euo pipefail
           cp verdict/issue.md issue.md
-          mapfile -t reports < <(ls bisects/*/*/report.tsv 2> /dev/null || true)
+          # bisects/<artifact>/<metric>/report.tsv, or bisects/<metric>/report.tsv when one bisect ran
+          mapfile -t reports < <(find bisects -name report.tsv 2> /dev/null | sort)
           if [ ${#reports[@]} -gt 0 ]; then
             { echo; python3 -I scripts/bisect_report.py issue "${reports[@]}"; } >> issue.md
             if [ "$RECORD" = true ]; then
