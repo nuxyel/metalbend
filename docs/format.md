@@ -138,6 +138,31 @@ and they are compared only between two Bends counted on one runner, in one folde
     `report.md` shows the definitions that changed.
   - `report.md`, all of it as text; `bisect.log`, `git bisect log`.
 
+## The history: `history/` on the `data` branch
+
+The history (`.github/workflows/history.yml`, from 1.1.0, by hand) counts every workload on a range of releases under
+Cachegrind, as the release watch does, with one difference: a job counts one workload on every release of the range,
+one after another (`scripts/history.sh`), instead of two releases a job. So each release is counted once, and a
+workload's whole line comes from one runner and one clang; two workloads may come from two runners, so a line compares
+with itself, never with another workload's. The same counts' rules as `track/` apply: never in `runs.tsv`, never
+compared across folders.
+
+- `history/index.tsv`: one line per run: `folder`, `from`, `to`, `workloads`, `releases`, `counts` (rows whose output
+  is its oracle), `gaps` (rows where the workload does not build or run), `run` (its URL).
+- `history/<date>-<from>-<to>/` (`-2`, `-3` for a second run of the same range that day), append-only:
+  - `counts.tsv`: `scripts/count.sh`'s rows as in `track/`, one per workload and release, `ref` the release's tag.
+  - `gaps.tsv`: `release`, `workload`, `bits` (`compile-failed` or `run-failed`), `why` (the first error line of the
+    build's log or Cachegrind's report). A workload that does not build on a release is recorded, never adapted.
+  - `steps.tsv`, `scripts/history_report.py`'s: one row per workload and step from a release to the next, `old`, `new`,
+    `workload`, `verdict` (the release watch's, plus `gap`: it builds on neither release, and `first`: on the new one
+    only), `ir_old`, `ir_new`, `ir_change`, `d1_old`, `d1_new`, `d1_change`, `why`.
+  - `coverage.tsv`: `workload`, then one column per release: `ok`, or its `bits` and `why`.
+  - `report.md`: per release, how many workloads got faster, slower or stayed the same and the biggest moves; per
+    workload, its change from its first release to the last.
+  - `env/<workload>.tsv`, each job's `key` and `value`: `workload`, `releases`, `cpu`, `runner`, `clang`, `valgrind`,
+    `bun`, `metalbend`, `date`, `run`.
+- `docs/history.svg` on `main` is drawn from one folder's `counts.tsv` by `scripts/history_chart.py`.
+
 ## Adding a workload
 
 1. `workloads/<name>/main.bend`, as above; `native.c` and `gpu.bend` if it has them.
