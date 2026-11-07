@@ -16,7 +16,7 @@ pr_url	https://github.com/bendlang/bend/pull/1978
 step_change	+7.84%
 range_change	+9.42%
 functions_moved	span_fade WL_FID_0x559a0abb492a951db15be435191b6d0a_main_bump_go spin_0x559a0abb492a951db15be435191b6d0a_main_peek
-c_changed	(outside any function) ctr_take span_fade
+c_changed	(top-level) ctr_take span_fade
 commits	118
 clang	18.1.3
 valgrind	3.22.0

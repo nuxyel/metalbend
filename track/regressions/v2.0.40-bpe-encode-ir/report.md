@@ -47,7 +47,7 @@ All of them: `functions.tsv`.
 
 ## The emitted C, parent to first bad commit
 
-Definitions whose text differs (lines added, removed): `(outside any function)` (+1 -0), `ctr_take` (+3 -14), `span_fade` (+8 -1).
+Definitions whose text differs (lines added, removed): `(top-level)` (+1 -0), `ctr_take` (+3 -14), `span_fade` (+8 -1).
 
 ```diff
 --- parent/span_fade
@@ -68,8 +68,8 @@ Definitions whose text differs (lines added, removed): `(outside any function)` 
    term_drop(e, t);
 +  return 0;
  }
---- parent/(outside any function)
-+++ commit/(outside any function)
+--- parent/(top-level)
++++ commit/(top-level)
 @@ -645,4 +645,5 @@
  
  

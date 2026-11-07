@@ -48,7 +48,7 @@ All of them: `functions.tsv`.
 
 ## The emitted C, parent to first bad commit
 
-Definitions whose text differs (lines added, removed): `(outside any function)` (+1 -1), `WL_FID_0x559a0abb492a951db15be435191b6d0a_main_bump_go` (+2 -2), `WL_FID_0x559a0abb492a951db15be435191b6d0a_main_count_go` (+42 -47), `WL_FID_0x559a0abb492a951db15be435191b6d0a_main_count_go_k1` (+8 -20), `WL_FID_0x559a0abb492a951db15be435191b6d0a_main_merge_go` (+40 -108), `WL_FID_0x559a0abb492a951db15be435191b6d0a_main_merge_go_k3` (+6 -18), `WL_FID_0x559a0abb492a951db15be435191b6d0a_main_merge_go_k5` (+6 -18), `spin_0x559a0abb492a951db15be435191b6d0a_main_peek` (+39 -38).
+Definitions whose text differs (lines added, removed): `(top-level)` (+1 -1), `WL_FID_0x559a0abb492a951db15be435191b6d0a_main_bump_go` (+2 -2), `WL_FID_0x559a0abb492a951db15be435191b6d0a_main_count_go` (+42 -47), `WL_FID_0x559a0abb492a951db15be435191b6d0a_main_count_go_k1` (+8 -20), `WL_FID_0x559a0abb492a951db15be435191b6d0a_main_merge_go` (+40 -108), `WL_FID_0x559a0abb492a951db15be435191b6d0a_main_merge_go_k3` (+6 -18), `WL_FID_0x559a0abb492a951db15be435191b6d0a_main_merge_go_k5` (+6 -18), `spin_0x559a0abb492a951db15be435191b6d0a_main_peek` (+39 -38).
 
 ```diff
 --- parent/WL_FID_0x559a0abb492a951db15be435191b6d0a_main_bump_go
@@ -68,8 +68,8 @@ Definitions whose text differs (lines added, removed): `(outside any function)` 
 +        spare_free(e, cls_fit(5), _sp_1);
          spare_free(e, cls_fit(2), _sp_0);
          if (seq) {
---- parent/(outside any function)
-+++ commit/(outside any function)
+--- parent/(top-level)
++++ commit/(top-level)
 @@ -385,5 +385,5 @@
  #define FID_EXIT 45
  #define FID_ENTER 46
