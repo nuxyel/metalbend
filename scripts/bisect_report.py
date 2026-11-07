@@ -360,7 +360,9 @@ def issue_section(reports):
     for p in reports:
         kv = read_tsv_kv(p)
         m = NAMES.get(kv["metric"], kv["metric"])
-        pr = f" ([#{kv['pr']}]({kv['pr_url']}) {kv['pr_title']})" if kv.get("pr") else ""
+        # the pull request in a code span, not a link: an issue that links it would put a "mentioned this" on its
+        # timeline in bendlang/bend, and the watch leaves nothing there
+        pr = f" (`bendlang/bend#{kv['pr']}`, {kv['pr_title']})" if kv.get("pr") else ""
         one = f"- **{kv['workload']}, {m}**: "
         if kv.get("decided") == "no":
             one += f"one of {', '.join(c[:12] for c in kv['candidates'].split())} (skipped commits left)"
