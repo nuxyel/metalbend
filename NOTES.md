@@ -521,3 +521,45 @@ An upstream draft is in my private notes. Upstream main still has both.
 - `make test` 133, from 111 (count.sh with a fake Bend and valgrind, track.sh's lookups, track_verdict.py);
   `make mutate` 75 mutants (five new ones on count.sh and track_verdict.py, all caught). For 1.1.0, with the next
   release.
+
+## 2026-11-07: the history, Bend 2.0.32 to 2.0.40 under Cachegrind
+
+- `scripts/history.sh <workload> <release>...`: one workload counted (`scripts/count.sh`) with every release of a range,
+  one after another on one machine, so its whole line comes from one runner and one clang; a release where it does not
+  build or run is a row of `gaps.tsv` with its first error line. `--releases <first> <last>` lists bendlang/bend's
+  release tags in between. `scripts/history_report.py` judges each step from a release to the next as the release
+  watch does (plus `gap` and `first`) and writes `steps.tsv`, `coverage.tsv` and `report.md`;
+  `scripts/history_chart.py` draws `docs/history.svg`, one small chart a workload on its own scale (four workloads drop
+  by about 70%, and one scale for all flattened the rest). `.github/workflows/history.yml`, by hand: a job a workload,
+  then the report, into `history/` on the `data` branch (`docs/format.md`). One job a workload instead of the watch's
+  pairs counts each release once (9 counts a workload, not 16) and keeps a workload's line on one machine.
+- The run, https://github.com/nuxyel/metalbend/actions/runs/42381915783 (`history/2026-11-07-v2.0.32-v2.0.40/`): 15
+  workloads, 9 releases, 127 counts, every output its oracle, and 8 gaps, `read-bf16` and `read-binary` on 2.0.32-2.0.35
+  (binary-read's C effect against the older effect interface: `io_res` undeclared on 2.0.32, `too few arguments` on
+  2.0.33-2.0.35). `bpe-encode`'s job, 9 cache-simulated passes, took the longest. Its 2.0.39 and 2.0.40 counts
+  against the release watch's replay on another runner: 28 of 30 the same to the instruction, `read-bf16`'s two 403
+  instructions apart (0.0003%).
+- What moved (instructions, one thread, the runner's clang 18): 2.0.33 cut `gemm-fork` to 0.26x, `block-step` 0.29x,
+  `mnist-fork` 0.30x and `attention-step` 0.33x (the workloads that split their work into parallel blocks; locally,
+  `gemm-fork` with `--threads 1` takes 1.79 s of user time on 2.0.32 and 0.55 s on 2.0.33, one thread each, the same
+  hash, on a busy machine); 2.0.36 `bpe-encode` -7.98% and `rmsnorm-step` -6.73%; 2.0.39 `softmax-ce` 0.41x and
+  `mnist-step` -28.18%; 2.0.40 12 of 15 fewer and `bpe-encode` +9.42%. Small regressions: `bpe-encode` +0.42% and
+  +0.12% (2.0.37, 2.0.38), `softmax-ce` +0.31% and +1.83%, `gemm-fork` +0.22% and `mnist-fork` +0.59% (2.0.36),
+  `mnist-step` +0.14% (2.0.37). From 2.0.32 to 2.0.40: the four parallel-block workloads 0.26-0.31x, `softmax-ce`
+  0.40x, `mnist-step` -34.28%, `rmsnorm-step` -15.75%, `read-bf16` -24.16% (from 2.0.36), `bpe-encode` +1.23%,
+  `read-native` and `read-binary` unchanged. Which commits of 2.0.33 made the parallel-block change is the bisect's
+  question.
+- Cycles on 2.0.32-2.0.34 need an idle machine: `scripts/history_cycles.sh` builds those three from their tags and runs
+  the corpus with 2.0.35 in the same rounds (1 and 16 threads, 5 rounds, no GPU) into `results/<date>-2.0.32-2.0.34/`.
+  Not run yet. When the machine is idle, from a user unit so that no agent's process tree holds it:
+
+  ```sh
+  cd ~/Repos/Bend2/metalbend
+  systemd-run --user --collect --unit=metalbend-history-cycles --working-directory=$PWD \
+    --setenv=AGENTS_IDLE_OK=1 --setenv=AGENT_SAMPLE=10 --setenv=AGENT_MAX_PCT=10 --setenv=BEND_NO_TELEMETRY=1 \
+    --setenv=MAX_WAIT=12 --setenv=PATH="$PATH" \
+    -p StandardOutput=append:$PWD/build/when_idle.log -p StandardError=append:$PWD/build/when_idle.log \
+    $PWD/scripts/when_idle.sh $PWD/scripts/history_cycles.sh
+  ```
+- `make test` 143, from 133 (history.sh on fake Bends, history_report.py, history_chart.py). For 1.1.0, with the next
+  release.
