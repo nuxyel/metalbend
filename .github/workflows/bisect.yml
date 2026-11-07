@@ -1,0 +1,134 @@
+name: Bisect
+
+# One workload between two refs of bendlang/bend: `git bisect` over the commits between them, each step a source build
+# of Bend and one Cachegrind count of the workload (scripts/bisect.sh), down to the first commit with the new count.
+# Its report (the commit, its pull request, the counts per function at that commit and its parent, the C both emit
+# for the workload) is an artifact, and with `record` it goes to track/regressions/ on the data branch. The release
+# watch (track.yml) calls it for each regression it finds; by hand, any workload and refs. Nothing is posted anywhere.
+on:
+  workflow_dispatch:
+    inputs:
+      workload:
+        description: "the workload"
+        required: true
+      good:
+        description: "bendlang/bend ref with the old count"
+        required: true
+      bad:
+        description: "bendlang/bend ref with the new count"
+        required: true
+      metrics:
+        description: "ir, d1 or bits, separated by spaces (empty: every one that moved)"
+        default: ""
+      record:
+        description: "add the report to track/regressions/ on the data branch"
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      workload:
+        type: string
+        required: true
+      good:
+        type: string
+        required: true
+      bad:
+        type: string
+        required: true
+      metrics:
+        type: string
+        default: ""
+      record:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  bisect:
+    name: bisect ${{ inputs.workload }}, ${{ inputs.good }} to ${{ inputs.bad }}
+    runs-on: ubuntu-24.04     # the image the release watch counts on
+    timeout-minutes: 330
+    permissions:
+      contents: write   # the data branch
+    env:
+      W: ${{ inputs.workload }}
+      GOOD: ${{ inputs.good }}
+      BAD: ${{ inputs.bad }}
+      METRICS: ${{ inputs.metrics }}
+      RECORD: ${{ inputs.record }}
+      RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: clang and valgrind
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q valgrind
+          command -v clang || sudo apt-get install -y -q clang
+          clang --version | head -1; valgrind --version
+
+      - name: Data
+        run: make data
+
+      - name: Bisect
+        env:
+          GH_TOKEN: ${{ github.token }}   # the pull request of the commit found (bendlang/bend is public)
+        run: |
+          # shellcheck disable=SC2086  # METRICS is a list
+          OUT=out scripts/bisect.sh "$W" "$GOOD" "$BAD" $METRICS
+          for f in out/*/report.md; do cat "$f" >> "$GITHUB_STEP_SUMMARY"; echo >> "$GITHUB_STEP_SUMMARY"; done
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: bisect-${{ inputs.workload }}
+          path: |
+            out/
+            !out/row.tmp
+          if-no-files-found: warn
+
+      - uses: actions/checkout@v7
+        if: env.RECORD == 'true'
+        with:
+          ref: data
+          path: store
+          fetch-depth: 0
+
+      - name: Record on the data branch
+        if: env.RECORD == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          safe() { echo "$1" | tr -c 'A-Za-z0-9._\n-' _; }
+          cd store
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          added=()
+          for d in ../out/*/; do
+            m=$(basename "$d")
+            [ -f "$d/report.tsv" ] || continue
+            folder=$(safe "$BAD")-$(safe "$W")-$m
+            n=1; base=$folder
+            while [ -e "track/regressions/$folder" ]; do n=$((n + 1)); folder=$base-$n; done
+            mkdir -p "track/regressions/$folder"
+            cp "$d"/report.md "$d"/report.tsv "$d"/functions.tsv "$d"/steps.tsv "$d"/c.diff "$d"/bisect.log \
+              "track/regressions/$folder/"
+            cp ../out/counts.tsv "track/regressions/$folder/"
+            added+=("$folder")
+          done
+          [ ${#added[@]} -gt 0 ] || { echo "no report to record"; exit 0; }
+          git add track/regressions
+          git commit -q -m "bisect: $W, $GOOD to $BAD (${added[*]})"
+          # bisects of other workloads may push at the same time; their folders differ, so a rebase always applies
+          for try in 1 2 3 4 5; do
+            git push -q origin HEAD:data && exit 0
+            sleep $((try * 5)); git pull -q --rebase origin data
+          done
+          exit 1

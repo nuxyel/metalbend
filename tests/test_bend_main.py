@@ -36,9 +36,9 @@ class BendMain(unittest.TestCase):
         return subprocess.run(["git", "-C", str(self.up), "rev-parse", "HEAD"], capture_output=True,
                               text=True).stdout.strip()
 
-    def bend_main(self, *args):
+    def bend_main(self, *args, **env):
         return subprocess.run(["bash", str(self.mb / "scripts" / "bend_main.sh"), *args], capture_output=True,
-                              text=True, timeout=300, env=dict(os.environ, BEND_NO_TELEMETRY="1"))
+                              text=True, timeout=300, env=dict(os.environ, BEND_NO_TELEMETRY="1", **env))
 
     def test_main_is_origins_latest_commit(self):
         head = self.commit("2.0.40-dev")   # upstream moved on after the clone
@@ -47,6 +47,16 @@ class BendMain(unittest.TestCase):
         self.assertIn("build/bin/main reports bend 2.0.40-dev", p.stdout)
         self.assertEqual((self.mb / "build" / "bin" / "main.commit").read_text(), head + "\n")
         self.assertIn(f"/build/src/main-{head[:8]}/bend2/main.ts", (self.mb / "build" / "bin" / "main").read_text())
+
+    def test_bin_puts_the_wrapper_elsewhere(self):
+        first = subprocess.run(["git", "-C", str(self.up), "rev-parse", "HEAD"], capture_output=True,
+                               text=True).stdout.strip()
+        self.commit("2.0.40-dev")
+        p = self.bend_main(first, BIN="build/bin/at-first")
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertIn("build/bin/at-first reports bend 2.0.39", p.stdout)
+        self.assertEqual((self.mb / "build" / "bin" / "at-first.commit").read_text(), first + "\n")
+        self.assertFalse((self.mb / "build" / "bin" / "main").exists())
 
     def test_an_unknown_ref_stops_it(self):
         p = self.bend_main("no-such-branch")

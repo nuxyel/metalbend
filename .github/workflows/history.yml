@@ -1,0 +1,177 @@
+name: History
+
+# Every workload over a range of Bend releases, counted under Cachegrind on GitHub's runners: one job a workload, and
+# in it every release built from source and counted one after another (scripts/history.sh), so a workload's whole line
+# comes from one runner and one clang. The release watch (track.yml) compares two releases in one job the same way;
+# this counts each release once instead of twice per pair. Then scripts/history_report.py judges each step from a
+# release to the next as the watch does, and the counts go to history/ on the data branch. By hand only; it opens
+# nothing anywhere.
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "the first release of bendlang/bend to count"
+        default: "v2.0.32"
+      to:
+        description: "the last release to count"
+        default: "v2.0.40"
+      workloads:
+        description: "workloads separated by spaces (empty: every workload)"
+        default: ""
+      record:
+        description: "add the counts to history/ on the data branch"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: history
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: what to count
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      releases: ${{ steps.plan.outputs.releases }}
+      workloads: ${{ steps.plan.outputs.workloads }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: The releases and the workloads
+        id: plan
+        shell: bash
+        env:
+          FROM: ${{ inputs.from }}
+          TO: ${{ inputs.to }}
+          WORKLOADS: ${{ inputs.workloads }}
+        run: |
+          set -euo pipefail
+          rels=$(scripts/history.sh --releases "$FROM" "$TO" | paste -sd ' ')
+          [ -n "$rels" ] || { echo "::error::no releases from $FROM to $TO"; exit 1; }
+          ws=$(printf '%s\n' ${WORKLOADS:-$(ls workloads)} | jq -R . | jq -sc .)
+          { echo "releases=$rels"; echo "workloads=$ws"; } >> "$GITHUB_OUTPUT"
+          echo "Counting $ws on $rels" >> "$GITHUB_STEP_SUMMARY"
+
+  count:
+    name: ${{ matrix.workload }}
+    needs: plan
+    runs-on: ubuntu-24.04     # pinned, as the release watch: the image's clang is in the counts
+    timeout-minutes: 300      # bpe-encode: about 7 minutes a release with the cache simulated
+    strategy:
+      fail-fast: false
+      matrix:
+        workload: ${{ fromJSON(needs.plan.outputs.workloads) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: clang and valgrind
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q valgrind
+          command -v clang || sudo apt-get install -y -q clang
+          clang --version | head -1; valgrind --version
+
+      - name: Data
+        run: make data
+
+      - name: Count with every release
+        env:
+          W: ${{ matrix.workload }}
+          RELEASES: ${{ needs.plan.outputs.releases }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: OUT=out scripts/history.sh "$W" $RELEASES
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: history-${{ matrix.workload }}
+          path: |
+            out/
+            build/count/*/${{ matrix.workload }}.cachegrind
+          if-no-files-found: warn
+
+  gather:
+    name: report
+    needs: [plan, count]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write   # the data branch
+    env:
+      FROM: ${{ inputs.from }}
+      TO: ${{ inputs.to }}
+      RECORD: ${{ inputs.record }}
+      RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/checkout@v7
+        with:
+          ref: data
+          path: store
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: history-*
+          path: parts
+
+      - name: Report
+        id: report
+        shell: bash
+        run: |
+          set -euo pipefail
+          folder=$(date -u +%F)-$FROM-$TO
+          n=1; base=$folder
+          while [ -e "store/history/$folder" ]; do n=$((n + 1)); folder=$base-$n; done
+          echo "folder=$folder" >> "$GITHUB_OUTPUT"
+          mkdir -p out/env
+          { scripts/count.sh --header; for f in parts/*/out/counts.tsv; do tail -n +2 "$f"; done; } > out/counts.tsv
+          { echo -e "release\tworkload\tbits\twhy"; for f in parts/*/out/gaps.tsv; do tail -n +2 "$f"; done; } > out/gaps.tsv
+          for f in parts/*/out/env.tsv; do w=$(awk -F'\t' '$1 == "workload" {print $2}' "$f"); cp "$f" "out/env/$w.tsv"; done
+          python3 -I scripts/history_report.py out | tee out/report.txt
+          { cat out/report.md; echo; echo "The run: $RUN"; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record on the data branch
+        if: env.RECORD == 'true'
+        shell: bash
+        env:
+          FOLDER: ${{ steps.report.outputs.folder }}
+        run: |
+          set -euo pipefail
+          d=store/history/$FOLDER
+          mkdir -p "$d"
+          cp -r out/counts.tsv out/gaps.tsv out/steps.tsv out/coverage.tsv out/report.md out/env "$d/"
+          idx=store/history/index.tsv
+          [ -f "$idx" ] || echo -e "folder\tfrom\tto\tworkloads\treleases\tcounts\tgaps\trun" > "$idx"
+          ws=$(ls out/env | wc -l)
+          rels=$(head -1 out/coverage.tsv | tr '\t' '\n' | tail -n +2 | wc -l)
+          cs=$(awk -F'\t' 'NR > 1 && $9 == "ok"' out/counts.tsv | wc -l)
+          gs=$(tail -n +2 out/gaps.tsv | wc -l)
+          echo -e "$FOLDER\t$FROM\t$TO\t$ws\t$rels\t$cs\t$gs\t$RUN" >> "$idx"
+          cd store
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add history
+          git commit -q -m "history: Bend $FROM to $TO ($ws workloads, $cs counts, $gs gaps)"
+          git pull -q --rebase origin data
+          git push -q origin HEAD:data
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: history-report
+          path: out/

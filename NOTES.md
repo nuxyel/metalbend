@@ -493,3 +493,109 @@ An upstream draft is in my private notes. Upstream main still has both.
   laws` ten laws, 22 mutants refused; `make mutate` 70 mutants as expected (64 caught, the same 6 survive); `make test`
   111. Two tests named 2.0.39 (the bump script's and the GPU check's fake compiler); they now read the pin from the
   repository, and the bump test moves it one release past the real one.
+
+## 2026-11-07: the release watch (Cachegrind on GitHub's runners)
+
+- `scripts/count.sh <Bend> <workload>`: a Bend from a ref (`scripts/bend_main.sh`, now with `BIN` for the wrapper's
+  path), a binary or a source tree; the workload built once into `build/count/<commit>/`, run on one thread under
+  `valgrind --tool=cachegrind --cache-sim=yes` with the caches given explicitly, and one row: instructions, simulated
+  D1 and last-level misses, the hash against `oracles.tsv`. Under `env -i` with a fixed environment: on this machine
+  `HEADER=1` alone in the environment moved `read-native`'s count by 241 instructions (the environment's size moves
+  the stack); with it fixed the count repeats exactly whatever the caller's environment.
+- `scripts/track.sh <old> <new> [workloads]`: both Bends built once, every workload counted with each, then
+  `scripts/track_verdict.py`: a finding beyond 0.1% in instructions or 5% in D1 misses, or an output that is not its
+  oracle; regression, improvement, mixed, same, bits, no-baseline, missing. `--next` and `--previous` read
+  bendlang/bend's release tags in version order.
+- `.github/workflows/track.yml`: daily, the first release after `track/last-tag` on the new `data` branch (it starts at
+  v2.0.40) against the release before it; one job a workload, both Bends in the job, the counts appended to `track/`
+  and an issue here on a regression or a changed output; by hand with any refs. `docs/format.md` has `track/`.
+  `workflow_dispatch` needs the file on `main`, so before the release it ran from a throwaway branch with a push
+  trigger once (to register it), then by its id on `devel`.
+- The replay, v2.0.39 against v2.0.40 on all 15 workloads (run 42377905816, ubuntu-24.04, clang 18.1.3, valgrind
+  3.22.0, `track/runs/2026-11-07-v2.0.39-v2.0.40/`): every output its oracle; `bpe-encode` the one regression,
+  instructions +9.42% and D1 misses 2.03x (195,729 M to 214,161 M; 1,108 M to 2,246 M); 12 improvements (`read-bf16`
+  -22.47%, `mnist-fork` -10.61%, `rmsnorm-step` -9.25%, `mnist-step` -8.10%, `softmax-ce-array` -4.94% the largest);
+  `read-binary` and `read-native` the same. The runner's clang moves some counts against this machine's perf ones
+  (`gemm-fork` -2.65% here, +0.90% in the run of record; `read-native` +0.00% here, -2.10% under Cachegrind with clang
+  23.1.3 here), which is why the watch compares two Bends on one runner only.
+- `make test` 133, from 111 (count.sh with a fake Bend and valgrind, track.sh's lookups, track_verdict.py);
+  `make mutate` 75 mutants (five new ones on count.sh and track_verdict.py, all caught). For 1.1.0, with the next
+  release.
+
+## 2026-11-07: the history, Bend 2.0.32 to 2.0.40 under Cachegrind
+
+- `scripts/history.sh <workload> <release>...`: one workload counted (`scripts/count.sh`) with every release of a range,
+  one after another on one machine, so its whole line comes from one runner and one clang; a release where it does not
+  build or run is a row of `gaps.tsv` with its first error line. `--releases <first> <last>` lists bendlang/bend's
+  release tags in between. `scripts/history_report.py` judges each step from a release to the next as the release
+  watch does (plus `gap` and `first`) and writes `steps.tsv`, `coverage.tsv` and `report.md`;
+  `scripts/history_chart.py` draws `docs/history.svg`, one small chart a workload on its own scale (four workloads drop
+  by about 70%, and one scale for all flattened the rest). `.github/workflows/history.yml`, by hand: a job a workload,
+  then the report, into `history/` on the `data` branch (`docs/format.md`). One job a workload instead of the watch's
+  pairs counts each release once (9 counts a workload, not 16) and keeps a workload's line on one machine.
+- The run, https://github.com/nuxyel/metalbend/actions/runs/42381915783 (`history/2026-11-07-v2.0.32-v2.0.40/`): 15
+  workloads, 9 releases, 127 counts, every output its oracle, and 8 gaps, `read-bf16` and `read-binary` on 2.0.32-2.0.35
+  (binary-read's C effect against the older effect interface: `io_res` undeclared on 2.0.32, `too few arguments` on
+  2.0.33-2.0.35). `bpe-encode`'s job, 9 cache-simulated passes, took the longest. Its 2.0.39 and 2.0.40 counts
+  against the release watch's replay on another runner: 28 of 30 the same to the instruction, `read-bf16`'s two 403
+  instructions apart (0.0003%).
+- What moved (instructions, one thread, the runner's clang 18): 2.0.33 cut `gemm-fork` to 0.26x, `block-step` 0.29x,
+  `mnist-fork` 0.30x and `attention-step` 0.33x (the workloads that split their work into parallel blocks; locally,
+  `gemm-fork` with `--threads 1` takes 1.79 s of user time on 2.0.32 and 0.55 s on 2.0.33, one thread each, the same
+  hash, on a busy machine); 2.0.36 `bpe-encode` -7.98% and `rmsnorm-step` -6.73%; 2.0.39 `softmax-ce` 0.41x and
+  `mnist-step` -28.18%; 2.0.40 12 of 15 fewer and `bpe-encode` +9.42%. Small regressions: `bpe-encode` +0.42% and
+  +0.12% (2.0.37, 2.0.38), `softmax-ce` +0.31% and +1.83%, `gemm-fork` +0.22% and `mnist-fork` +0.59% (2.0.36),
+  `mnist-step` +0.14% (2.0.37). From 2.0.32 to 2.0.40: the four parallel-block workloads 0.26-0.31x, `softmax-ce`
+  0.40x, `mnist-step` -34.28%, `rmsnorm-step` -15.75%, `read-bf16` -24.16% (from 2.0.36), `bpe-encode` +1.23%,
+  `read-native` and `read-binary` unchanged. Which commits of 2.0.33 made the parallel-block change is the bisect's
+  question.
+- Cycles on 2.0.32-2.0.34 need an idle machine: `scripts/history_cycles.sh` builds those three from their tags and runs
+  the corpus with 2.0.35 in the same rounds (1 and 16 threads, 5 rounds, no GPU) into `results/<date>-2.0.32-2.0.34/`.
+  Not run yet. When the machine is idle, from a user unit so that no agent's process tree holds it:
+
+  ```sh
+  cd ~/Repos/Bend2/metalbend
+  systemd-run --user --collect --unit=metalbend-old-cycles --working-directory=$PWD \
+    --setenv=AGENTS_IDLE_OK=1 --setenv=AGENT_SAMPLE=10 --setenv=AGENT_MAX_PCT=10 --setenv=BEND_NO_TELEMETRY=1 \
+    --setenv=MAX_WAIT=12 --setenv=PATH="$PATH" \
+    -p StandardOutput=append:$PWD/build/when_idle.log -p StandardError=append:$PWD/build/when_idle.log \
+    $PWD/scripts/when_idle.sh $PWD/scripts/history_cycles.sh
+  ```
+- `make test`: 10 more tests (history.sh on fake Bends, history_report.py, history_chart.py). For 1.1.0, with the next
+  release.
+
+## 2026-11-07: the bisect (`scripts/bisect.sh`, `.github/workflows/bisect.yml`)
+
+- `scripts/bisect.sh <workload> <good> <bad> [ir|d1|bits]`: `git bisect run` in a `--no-checkout` worktree of the
+  bendlang/bend clone, each step `scripts/bend_main.sh` at the commit and one `scripts/count.sh`, judged by
+  `scripts/bisect_report.py`: bad when the count is nearer the bad end's than the good end's (more than half the
+  way), so a commit that moves a little does not decide a bisect over a big change, and an improvement bisects the same
+  way; a commit whose Bend or workload does not build, or whose output is not its oracle, is skipped (for `bits`, a
+  changed output is bad). The counts are shared between the metrics of one run. Then the report: the commit, its pull
+  request (`gh api`), Cachegrind's counts per function at the parent and at the commit, and the C both emit for the
+  workload, diffed by definition (a top-level definition, or a `WL_CASE` block for the program's own functions).
+  `git bisect run` hands the step the bisect's repository in `GIT_DIR`; the step clears it, or every count would name
+  the bisect's HEAD as its commit.
+- `bisect.yml`: by hand or called by `track.yml`, which now bisects every regression or changed output it finds (the
+  metrics that went up) and opens the issue after, naming the commits. The issue names the pull request in a code
+  span, not a link: a link from an issue would put a "mentioned this" on its timeline in bendlang/bend. Registered for
+  `workflow_dispatch` from a throwaway branch whose push run skips, as `track.yml` was. `track.yml`'s gather found no
+  counts when one workload ran: download-artifact puts a single artifact straight into its folder; it finds them now
+  wherever they are.
+- On this machine first (busy; Cachegrind's counts do not mind): `rmsnorm-step` from v2.0.39 to v2.0.40, instructions
+  -28.58% with clang 23.1.3, is bendlang/bend#1928 (`blk_new`'s fill vectorized), 7 steps over 118 commits in 3 min.
+- On a runner (ubuntu-24.04, clang 18.1.3, valgrind 3.22.0), from `track.yml` on `bpe-encode` (run 42384646460, the
+  bisect 1 h 56 min, `track/regressions/v2.0.40-bpe-encode-{ir,d1}/`):
+  - instructions: 0d35f6da (#1978, "On Metal, the shared-node half of a take is a call"), +7.84% at that commit,
+    +9.42% over the range, 7 steps; `span_fade` 1.11 G to 28.05 G instructions, the workload's `bump_go` -10.2 G and
+    `peek` -0.94 G; the C changed in `span_fade` and `ctr_take`.
+  - D1 misses: 3c1f0d3a (#2036, "a wide def's boxed record stays boxed until a use needs it"), 2.03x at that commit
+    and over the range, 6 steps; `bump_go` +552 M, `rfc_wrap` +393 M, `bump_go`'s continuation +165 M; the C changed
+    in `bump_go`, `count_go`, `merge_go` and their continuations.
+- `gemm-fork` from v2.0.32 to v2.0.33 (run 42387765688, by hand, `track/regressions/v2.0.33-gemm-fork-ir/`):
+  ef66a7cc (#1155, "A shared Array's redirect is read without a race and without an atomic on the device, once per
+  spin"), 0.26x the instructions at that commit and over the range, 4 steps over 24 commits in 6 min; `spin_8`
+  49.1 G to none, the program's `cpar` +8.3 G and a new `spin_26` +4.3 G (2.0.33 numbers its spins anew, so the
+  per-function table pairs some of them by name only).
+- `make test`: 14 more tests (`tests/test_bisect.py`; 157 with the history's); `make mutate` 79 mutants (four new
+  ones on `bisect_report.py`, all caught). For 1.1.0, with the release watch.

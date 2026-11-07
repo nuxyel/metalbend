@@ -1,0 +1,341 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="832" viewBox="0 0 820 832" role="img" aria-labelledby="t">
+<title id="t">Instructions of 15 workloads on Bend v2.0.32 to v2.0.40</title>
+<style>
+  svg { font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; }
+  .bg { fill: #fcfcfb; }
+  .title { font-size: 19px; font-weight: 600; fill: #0b0b0b; }
+  .sub { font-size: 13px; fill: #52514e; }
+  .key { font-size: 12px; fill: #52514e; }
+  .label { font-size: 13px; font-weight: 600; fill: #0b0b0b; }
+  .name { font-size: 10.5px; fill: #6f6e69; font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; }
+  .value { font-size: 12px; font-weight: 600; fill: #0b0b0b; }
+  .tick { font-size: 10px; fill: #6f6e69; }
+  .foot { font-size: 11px; fill: #6f6e69; }
+  .grid { stroke: #e6e5e0; stroke-width: 1; }
+  .base { stroke: #b4b2a9; stroke-width: 1; stroke-dasharray: 3 3; }
+  .line { fill: none; stroke: #52514e; stroke-width: 2; stroke-linejoin: round; }
+  .dot { fill: #52514e; }
+  .down { fill: #2a78d6; stroke: #fcfcfb; stroke-width: 1.5; }
+  .up { fill: #e34948; stroke: #fcfcfb; stroke-width: 1.5; }
+  .gapband { fill: #ebeae6; }
+  @media (prefers-color-scheme: dark) {
+    .bg { fill: #1a1a19; }
+    .title, .label, .value { fill: #f0efec; }
+    .sub, .key { fill: #c3c2b7; }
+    .name, .tick, .foot { fill: #9d9c94; }
+    .grid { stroke: #33332f; }
+    .base { stroke: #6f6e69; }
+    .line { stroke: #c3c2b7; }
+    .dot { fill: #c3c2b7; }
+    .down { fill: #3987e5; stroke: #1a1a19; }
+    .up { fill: #e66767; stroke: #1a1a19; }
+    .gapband { fill: #2a2a28; }
+  }
+</style>
+<rect class="bg" width="820" height="832"/>
+<text x="24.0" y="38.0" class="title" text-anchor="start">Bend 2.0.32 to 2.0.40 on 15 real ML workloads</text>
+<text x="24.0" y="60.0" class="sub" text-anchor="start">Instructions on every release against the first release each workload builds on (0% = as many), each on its own scale.</text>
+<polygon points="24,77 33,77 28.5,85" class="down"/>
+<text x="38.0" y="85.0" class="key" text-anchor="start">fewer instructions than the release before (beyond 0.1%)</text>
+<polygon points="354,85 363,85 358.5,77" class="up"/>
+<text x="368.0" y="85.0" class="key" text-anchor="start">more</text>
+<rect x="416" y="74" width="16" height="12" class="gapband"/>
+<text x="438.0" y="85.0" class="key" text-anchor="start">does not build on that release</text>
+<text x="24.0" y="118.0" class="label" text-anchor="start">matrix product, parallel blocks</text>
+<text x="24.0" y="132.0" class="name" text-anchor="start">gemm-fork</text>
+<line x1="58.0" y1="208.0" x2="220.7" y2="208.0" class="grid"/>
+<text x="53.0" y="211.5" class="tick" text-anchor="end">−80%</text>
+<line x1="58.0" y1="147.8" x2="220.7" y2="147.8" class="base"/>
+<text x="53.0" y="151.3" class="tick" text-anchor="end">0%</text>
+<polyline points="58.0,147.8 78.3,203.3 98.7,203.3 119.0,203.3 139.3,203.2 159.7,203.2 180.0,203.2 200.3,203.2 220.7,203.8" class="line"/>
+<circle cx="58.0" cy="147.8" r="2.2" class="dot"/>
+<polygon points="73.3,199.3 83.3,199.3 78.3,208.3" class="down"/>
+<circle cx="98.7" cy="203.3" r="2.2" class="dot"/>
+<circle cx="119.0" cy="203.3" r="2.2" class="dot"/>
+<polygon points="134.3,207.2 144.3,207.2 139.3,198.2" class="up"/>
+<circle cx="159.7" cy="203.2" r="2.2" class="dot"/>
+<circle cx="180.0" cy="203.2" r="2.2" class="dot"/>
+<circle cx="200.3" cy="203.2" r="2.2" class="dot"/>
+<polygon points="215.7,199.8 225.7,199.8 220.7,208.8" class="down"/>
+<text x="227.7" y="207.8" class="value" text-anchor="start">−74.4%</text>
+<text x="288.7" y="118.0" class="label" text-anchor="start">MNIST training step, parallel blocks</text>
+<text x="288.7" y="132.0" class="name" text-anchor="start">mnist-fork</text>
+<line x1="322.7" y1="208.0" x2="485.3" y2="208.0" class="grid"/>
+<text x="317.7" y="211.5" class="tick" text-anchor="end">−80%</text>
+<line x1="322.7" y1="147.8" x2="485.3" y2="147.8" class="base"/>
+<text x="317.7" y="151.3" class="tick" text-anchor="end">0%</text>
+<polyline points="322.7,147.8 343.0,200.7 363.3,200.7 383.7,200.7 404.0,200.6 424.3,200.6 444.7,200.6 465.0,201.1 485.3,203.4" class="line"/>
+<circle cx="322.7" cy="147.8" r="2.2" class="dot"/>
+<polygon points="338.0,196.7 348.0,196.7 343.0,205.7" class="down"/>
+<circle cx="363.3" cy="200.7" r="2.2" class="dot"/>
+<circle cx="383.7" cy="200.7" r="2.2" class="dot"/>
+<polygon points="399.0,204.6 409.0,204.6 404.0,195.6" class="up"/>
+<circle cx="424.3" cy="200.6" r="2.2" class="dot"/>
+<circle cx="444.7" cy="200.6" r="2.2" class="dot"/>
+<polygon points="460.0,197.1 470.0,197.1 465.0,206.1" class="down"/>
+<polygon points="480.3,199.4 490.3,199.4 485.3,208.4" class="down"/>
+<text x="492.3" y="207.4" class="value" text-anchor="start">−73.9%</text>
+<text x="553.3" y="118.0" class="label" text-anchor="start">transformer block, forward + backward</text>
+<text x="553.3" y="132.0" class="name" text-anchor="start">block-step</text>
+<line x1="587.3" y1="208.0" x2="750.0" y2="208.0" class="grid"/>
+<text x="582.3" y="211.5" class="tick" text-anchor="end">−80%</text>
+<line x1="587.3" y1="147.8" x2="750.0" y2="147.8" class="base"/>
+<text x="582.3" y="151.3" class="tick" text-anchor="end">0%</text>
+<polyline points="587.3,147.8 607.7,201.4 628.0,201.4 648.3,201.6 668.7,201.6 689.0,201.6 709.3,201.6 729.7,201.6 750.0,202.4" class="line"/>
+<circle cx="587.3" cy="147.8" r="2.2" class="dot"/>
+<polygon points="602.7,197.4 612.7,197.4 607.7,206.4" class="down"/>
+<circle cx="628.0" cy="201.4" r="2.2" class="dot"/>
+<polygon points="643.3,197.6 653.3,197.6 648.3,206.6" class="down"/>
+<circle cx="668.7" cy="201.6" r="2.2" class="dot"/>
+<circle cx="689.0" cy="201.6" r="2.2" class="dot"/>
+<circle cx="709.3" cy="201.6" r="2.2" class="dot"/>
+<circle cx="729.7" cy="201.6" r="2.2" class="dot"/>
+<polygon points="745.0,198.4 755.0,198.4 750.0,207.4" class="down"/>
+<text x="757.0" y="206.4" class="value" text-anchor="start">−72.6%</text>
+<text x="24.0" y="250.0" class="label" text-anchor="start">attention, forward + backward</text>
+<text x="24.0" y="264.0" class="name" text-anchor="start">attention-step</text>
+<line x1="58.0" y1="340.0" x2="220.7" y2="340.0" class="grid"/>
+<text x="53.0" y="343.5" class="tick" text-anchor="end">−80%</text>
+<line x1="58.0" y1="279.8" x2="220.7" y2="279.8" class="base"/>
+<text x="53.0" y="283.3" class="tick" text-anchor="end">0%</text>
+<polyline points="58.0,279.8 78.3,330.1 98.7,330.1 119.0,330.5 139.3,330.6 159.7,330.6 180.0,330.6 200.3,330.6 220.7,331.5" class="line"/>
+<circle cx="58.0" cy="279.8" r="2.2" class="dot"/>
+<polygon points="73.3,326.1 83.3,326.1 78.3,335.1" class="down"/>
+<circle cx="98.7" cy="330.1" r="2.2" class="dot"/>
+<polygon points="114.0,326.5 124.0,326.5 119.0,335.5" class="down"/>
+<circle cx="139.3" cy="330.6" r="2.2" class="dot"/>
+<circle cx="159.7" cy="330.6" r="2.2" class="dot"/>
+<circle cx="180.0" cy="330.6" r="2.2" class="dot"/>
+<circle cx="200.3" cy="330.6" r="2.2" class="dot"/>
+<polygon points="215.7,327.5 225.7,327.5 220.7,336.5" class="down"/>
+<text x="227.7" y="335.5" class="value" text-anchor="start">−68.8%</text>
+<text x="288.7" y="250.0" class="label" text-anchor="start">softmax and cross-entropy</text>
+<text x="288.7" y="264.0" class="name" text-anchor="start">softmax-ce</text>
+<line x1="322.7" y1="340.0" x2="485.3" y2="340.0" class="grid"/>
+<text x="317.7" y="343.5" class="tick" text-anchor="end">−60%</text>
+<line x1="322.7" y1="285.1" x2="485.3" y2="285.1" class="base"/>
+<text x="317.7" y="288.6" class="tick" text-anchor="end">0%</text>
+<polyline points="322.7,285.1 343.0,285.1 363.3,285.1 383.7,285.1 404.0,286.9 424.3,286.6 444.7,285.0 465.0,339.1 485.3,339.6" class="line"/>
+<circle cx="322.7" cy="285.1" r="2.2" class="dot"/>
+<circle cx="343.0" cy="285.1" r="2.2" class="dot"/>
+<circle cx="363.3" cy="285.1" r="2.2" class="dot"/>
+<circle cx="383.7" cy="285.1" r="2.2" class="dot"/>
+<polygon points="399.0,282.9 409.0,282.9 404.0,291.9" class="down"/>
+<polygon points="419.3,290.6 429.3,290.6 424.3,281.6" class="up"/>
+<polygon points="439.7,289.0 449.7,289.0 444.7,280.0" class="up"/>
+<polygon points="460.0,335.1 470.0,335.1 465.0,344.1" class="down"/>
+<polygon points="480.3,335.6 490.3,335.6 485.3,344.6" class="down"/>
+<text x="492.3" y="343.6" class="value" text-anchor="start">−59.6%</text>
+<text x="553.3" y="250.0" class="label" text-anchor="start">MNIST training step</text>
+<text x="553.3" y="264.0" class="name" text-anchor="start">mnist-step</text>
+<line x1="587.3" y1="340.0" x2="750.0" y2="340.0" class="grid"/>
+<text x="582.3" y="343.5" class="tick" text-anchor="end">−40%</text>
+<line x1="587.3" y1="288.8" x2="750.0" y2="288.8" class="base"/>
+<text x="582.3" y="292.3" class="tick" text-anchor="end">0%</text>
+<line x1="587.3" y1="276.0" x2="750.0" y2="276.0" class="grid"/>
+<text x="582.3" y="279.5" class="tick" text-anchor="end">+10%</text>
+<polyline points="587.3,288.8 607.7,288.8 628.0,288.8 648.3,288.8 668.7,289.6 689.0,289.4 709.3,289.4 729.7,325.3 750.0,332.7" class="line"/>
+<circle cx="587.3" cy="288.8" r="2.2" class="dot"/>
+<circle cx="607.7" cy="288.8" r="2.2" class="dot"/>
+<circle cx="628.0" cy="288.8" r="2.2" class="dot"/>
+<circle cx="648.3" cy="288.8" r="2.2" class="dot"/>
+<polygon points="663.7,285.6 673.7,285.6 668.7,294.6" class="down"/>
+<polygon points="684.0,293.4 694.0,293.4 689.0,284.4" class="up"/>
+<circle cx="709.3" cy="289.4" r="2.2" class="dot"/>
+<polygon points="724.7,321.3 734.7,321.3 729.7,330.3" class="down"/>
+<polygon points="745.0,328.7 755.0,328.7 750.0,337.7" class="down"/>
+<text x="757.0" y="336.7" class="value" text-anchor="start">−34.3%</text>
+<text x="24.0" y="382.0" class="label" text-anchor="start">14 MB BF16 safetensors read</text>
+<text x="24.0" y="396.0" class="name" text-anchor="start">read-bf16</text>
+<rect x="58.0" y="408.0" width="71.2" height="64" class="gapband"/>
+<line x1="58.0" y1="472.0" x2="220.7" y2="472.0" class="grid"/>
+<text x="53.0" y="475.5" class="tick" text-anchor="end">−25%</text>
+<line x1="58.0" y1="418.7" x2="220.7" y2="418.7" class="base"/>
+<text x="53.0" y="422.2" class="tick" text-anchor="end">0%</text>
+<polyline points="139.3,418.7 159.7,418.7 180.0,423.3 200.3,423.3 220.7,470.2" class="line"/>
+<circle cx="139.3" cy="418.7" r="2.2" class="dot"/>
+<circle cx="159.7" cy="418.7" r="2.2" class="dot"/>
+<polygon points="175.0,419.3 185.0,419.3 180.0,428.3" class="down"/>
+<circle cx="200.3" cy="423.3" r="2.2" class="dot"/>
+<polygon points="215.7,466.2 225.7,466.2 220.7,475.2" class="down"/>
+<text x="227.7" y="474.2" class="value" text-anchor="start">−24.2%</text>
+<text x="288.7" y="382.0" class="label" text-anchor="start">RMSNorm</text>
+<text x="288.7" y="396.0" class="name" text-anchor="start">rmsnorm-step</text>
+<line x1="322.7" y1="472.0" x2="485.3" y2="472.0" class="grid"/>
+<text x="317.7" y="475.5" class="tick" text-anchor="end">−20%</text>
+<line x1="322.7" y1="420.8" x2="485.3" y2="420.8" class="base"/>
+<text x="317.7" y="424.3" class="tick" text-anchor="end">0%</text>
+<line x1="322.7" y1="408.0" x2="485.3" y2="408.0" class="grid"/>
+<text x="317.7" y="411.5" class="tick" text-anchor="end">+5%</text>
+<polyline points="322.7,420.8 343.0,420.8 363.3,420.8 383.7,422.0 404.0,439.2 424.3,439.2 444.7,439.1 465.0,439.1 485.3,461.1" class="line"/>
+<circle cx="322.7" cy="420.8" r="2.2" class="dot"/>
+<circle cx="343.0" cy="420.8" r="2.2" class="dot"/>
+<circle cx="363.3" cy="420.8" r="2.2" class="dot"/>
+<polygon points="378.7,418.0 388.7,418.0 383.7,427.0" class="down"/>
+<polygon points="399.0,435.2 409.0,435.2 404.0,444.2" class="down"/>
+<circle cx="424.3" cy="439.2" r="2.2" class="dot"/>
+<circle cx="444.7" cy="439.1" r="2.2" class="dot"/>
+<circle cx="465.0" cy="439.1" r="2.2" class="dot"/>
+<polygon points="480.3,457.1 490.3,457.1 485.3,466.1" class="down"/>
+<text x="492.3" y="465.1" class="value" text-anchor="start">−15.8%</text>
+<text x="553.3" y="382.0" class="label" text-anchor="start">softmax and cross-entropy, rows in place</text>
+<text x="553.3" y="396.0" class="name" text-anchor="start">softmax-ce-array</text>
+<line x1="587.3" y1="472.0" x2="750.0" y2="472.0" class="grid"/>
+<text x="582.3" y="475.5" class="tick" text-anchor="end">−10%</text>
+<line x1="587.3" y1="429.3" x2="750.0" y2="429.3" class="base"/>
+<text x="582.3" y="432.8" class="tick" text-anchor="end">0%</text>
+<line x1="587.3" y1="408.0" x2="750.0" y2="408.0" class="grid"/>
+<text x="582.3" y="411.5" class="tick" text-anchor="end">+5%</text>
+<polyline points="587.3,429.3 607.7,429.3 628.0,429.3 648.3,429.3 668.7,429.3 689.0,429.3 709.3,429.3 729.7,429.3 750.0,450.4" class="line"/>
+<circle cx="587.3" cy="429.3" r="2.2" class="dot"/>
+<circle cx="607.7" cy="429.3" r="2.2" class="dot"/>
+<circle cx="628.0" cy="429.3" r="2.2" class="dot"/>
+<circle cx="648.3" cy="429.3" r="2.2" class="dot"/>
+<circle cx="668.7" cy="429.3" r="2.2" class="dot"/>
+<circle cx="689.0" cy="429.3" r="2.2" class="dot"/>
+<circle cx="709.3" cy="429.3" r="2.2" class="dot"/>
+<circle cx="729.7" cy="429.3" r="2.2" class="dot"/>
+<polygon points="745.0,446.4 755.0,446.4 750.0,455.4" class="down"/>
+<text x="757.0" y="454.4" class="value" text-anchor="start">−4.9%</text>
+<text x="24.0" y="514.0" class="label" text-anchor="start">AdamW optimizer step</text>
+<text x="24.0" y="528.0" class="name" text-anchor="start">adamw</text>
+<line x1="58.0" y1="604.0" x2="220.7" y2="604.0" class="grid"/>
+<text x="53.0" y="607.5" class="tick" text-anchor="end">−10%</text>
+<line x1="58.0" y1="561.3" x2="220.7" y2="561.3" class="base"/>
+<text x="53.0" y="564.8" class="tick" text-anchor="end">0%</text>
+<line x1="58.0" y1="540.0" x2="220.7" y2="540.0" class="grid"/>
+<text x="53.0" y="543.5" class="tick" text-anchor="end">+5%</text>
+<polyline points="58.0,561.3 78.3,561.3 98.7,561.3 119.0,561.3 139.3,561.3 159.7,561.3 180.0,561.3 200.3,561.3 220.7,574.5" class="line"/>
+<circle cx="58.0" cy="561.3" r="2.2" class="dot"/>
+<circle cx="78.3" cy="561.3" r="2.2" class="dot"/>
+<circle cx="98.7" cy="561.3" r="2.2" class="dot"/>
+<circle cx="119.0" cy="561.3" r="2.2" class="dot"/>
+<circle cx="139.3" cy="561.3" r="2.2" class="dot"/>
+<circle cx="159.7" cy="561.3" r="2.2" class="dot"/>
+<circle cx="180.0" cy="561.3" r="2.2" class="dot"/>
+<circle cx="200.3" cy="561.3" r="2.2" class="dot"/>
+<polygon points="215.7,570.5 225.7,570.5 220.7,579.5" class="down"/>
+<text x="227.7" y="578.5" class="value" text-anchor="start">−3.1%</text>
+<text x="288.7" y="514.0" class="label" text-anchor="start">matrix product</text>
+<text x="288.7" y="528.0" class="name" text-anchor="start">gemm-tile8</text>
+<line x1="322.7" y1="604.0" x2="485.3" y2="604.0" class="grid"/>
+<text x="317.7" y="607.5" class="tick" text-anchor="end">−10%</text>
+<line x1="322.7" y1="561.3" x2="485.3" y2="561.3" class="base"/>
+<text x="317.7" y="564.8" class="tick" text-anchor="end">0%</text>
+<line x1="322.7" y1="540.0" x2="485.3" y2="540.0" class="grid"/>
+<text x="317.7" y="543.5" class="tick" text-anchor="end">+5%</text>
+<polyline points="322.7,561.3 343.0,561.3 363.3,561.3 383.7,561.3 404.0,561.3 424.3,561.3 444.7,561.3 465.0,561.3 485.3,571.8" class="line"/>
+<circle cx="322.7" cy="561.3" r="2.2" class="dot"/>
+<circle cx="343.0" cy="561.3" r="2.2" class="dot"/>
+<circle cx="363.3" cy="561.3" r="2.2" class="dot"/>
+<circle cx="383.7" cy="561.3" r="2.2" class="dot"/>
+<circle cx="404.0" cy="561.3" r="2.2" class="dot"/>
+<circle cx="424.3" cy="561.3" r="2.2" class="dot"/>
+<circle cx="444.7" cy="561.3" r="2.2" class="dot"/>
+<circle cx="465.0" cy="561.3" r="2.2" class="dot"/>
+<polygon points="480.3,567.8 490.3,567.8 485.3,576.8" class="down"/>
+<text x="492.3" y="575.8" class="value" text-anchor="start">−2.5%</text>
+<text x="553.3" y="514.0" class="label" text-anchor="start">matrix-vector product</text>
+<text x="553.3" y="528.0" class="name" text-anchor="start">matvec-bands</text>
+<line x1="587.3" y1="604.0" x2="750.0" y2="604.0" class="grid"/>
+<text x="582.3" y="607.5" class="tick" text-anchor="end">−10%</text>
+<line x1="587.3" y1="561.3" x2="750.0" y2="561.3" class="base"/>
+<text x="582.3" y="564.8" class="tick" text-anchor="end">0%</text>
+<line x1="587.3" y1="540.0" x2="750.0" y2="540.0" class="grid"/>
+<text x="582.3" y="543.5" class="tick" text-anchor="end">+5%</text>
+<polyline points="587.3,561.3 607.7,561.3 628.0,561.3 648.3,561.3 668.7,561.3 689.0,561.3 709.3,561.3 729.7,561.3 750.0,567.1" class="line"/>
+<circle cx="587.3" cy="561.3" r="2.2" class="dot"/>
+<circle cx="607.7" cy="561.3" r="2.2" class="dot"/>
+<circle cx="628.0" cy="561.3" r="2.2" class="dot"/>
+<circle cx="648.3" cy="561.3" r="2.2" class="dot"/>
+<circle cx="668.7" cy="561.3" r="2.2" class="dot"/>
+<circle cx="689.0" cy="561.3" r="2.2" class="dot"/>
+<circle cx="709.3" cy="561.3" r="2.2" class="dot"/>
+<circle cx="729.7" cy="561.3" r="2.2" class="dot"/>
+<polygon points="745.0,563.1 755.0,563.1 750.0,572.1" class="down"/>
+<text x="757.0" y="571.1" class="value" text-anchor="start">−1.3%</text>
+<text x="24.0" y="646.0" class="label" text-anchor="start">16 MB file read, built-in</text>
+<text x="24.0" y="660.0" class="name" text-anchor="start">read-native</text>
+<line x1="58.0" y1="736.0" x2="220.7" y2="736.0" class="grid"/>
+<text x="53.0" y="739.5" class="tick" text-anchor="end">−10%</text>
+<line x1="58.0" y1="693.3" x2="220.7" y2="693.3" class="base"/>
+<text x="53.0" y="696.8" class="tick" text-anchor="end">0%</text>
+<line x1="58.0" y1="672.0" x2="220.7" y2="672.0" class="grid"/>
+<text x="53.0" y="675.5" class="tick" text-anchor="end">+5%</text>
+<polyline points="58.0,693.3 78.3,693.3 98.7,693.3 119.0,693.3 139.3,693.3 159.7,693.3 180.0,693.3 200.3,693.3 220.7,693.3" class="line"/>
+<circle cx="58.0" cy="693.3" r="2.2" class="dot"/>
+<circle cx="78.3" cy="693.3" r="2.2" class="dot"/>
+<circle cx="98.7" cy="693.3" r="2.2" class="dot"/>
+<circle cx="119.0" cy="693.3" r="2.2" class="dot"/>
+<circle cx="139.3" cy="693.3" r="2.2" class="dot"/>
+<circle cx="159.7" cy="693.3" r="2.2" class="dot"/>
+<circle cx="180.0" cy="693.3" r="2.2" class="dot"/>
+<circle cx="200.3" cy="693.3" r="2.2" class="dot"/>
+<circle cx="220.7" cy="693.3" r="2.2" class="dot"/>
+<text x="227.7" y="697.3" class="value" text-anchor="start">0%</text>
+<text x="58.0" y="751.0" class="tick" text-anchor="middle">32</text>
+<text x="78.3" y="751.0" class="tick" text-anchor="middle">33</text>
+<text x="98.7" y="751.0" class="tick" text-anchor="middle">34</text>
+<text x="119.0" y="751.0" class="tick" text-anchor="middle">35</text>
+<text x="139.3" y="751.0" class="tick" text-anchor="middle">36</text>
+<text x="159.7" y="751.0" class="tick" text-anchor="middle">37</text>
+<text x="180.0" y="751.0" class="tick" text-anchor="middle">38</text>
+<text x="200.3" y="751.0" class="tick" text-anchor="middle">39</text>
+<text x="220.7" y="751.0" class="tick" text-anchor="middle">40</text>
+<text x="288.7" y="646.0" class="label" text-anchor="start">16 MB file read, bend-ml-binary-read</text>
+<text x="288.7" y="660.0" class="name" text-anchor="start">read-binary</text>
+<rect x="322.7" y="672.0" width="71.2" height="64" class="gapband"/>
+<line x1="322.7" y1="736.0" x2="485.3" y2="736.0" class="grid"/>
+<text x="317.7" y="739.5" class="tick" text-anchor="end">−10%</text>
+<line x1="322.7" y1="693.3" x2="485.3" y2="693.3" class="base"/>
+<text x="317.7" y="696.8" class="tick" text-anchor="end">0%</text>
+<line x1="322.7" y1="672.0" x2="485.3" y2="672.0" class="grid"/>
+<text x="317.7" y="675.5" class="tick" text-anchor="end">+5%</text>
+<polyline points="404.0,693.3 424.3,693.3 444.7,693.2 465.0,693.2 485.3,693.2" class="line"/>
+<circle cx="404.0" cy="693.3" r="2.2" class="dot"/>
+<circle cx="424.3" cy="693.3" r="2.2" class="dot"/>
+<circle cx="444.7" cy="693.2" r="2.2" class="dot"/>
+<circle cx="465.0" cy="693.2" r="2.2" class="dot"/>
+<circle cx="485.3" cy="693.2" r="2.2" class="dot"/>
+<text x="492.3" y="697.2" class="value" text-anchor="start">0%</text>
+<text x="322.7" y="751.0" class="tick" text-anchor="middle">32</text>
+<text x="343.0" y="751.0" class="tick" text-anchor="middle">33</text>
+<text x="363.3" y="751.0" class="tick" text-anchor="middle">34</text>
+<text x="383.7" y="751.0" class="tick" text-anchor="middle">35</text>
+<text x="404.0" y="751.0" class="tick" text-anchor="middle">36</text>
+<text x="424.3" y="751.0" class="tick" text-anchor="middle">37</text>
+<text x="444.7" y="751.0" class="tick" text-anchor="middle">38</text>
+<text x="465.0" y="751.0" class="tick" text-anchor="middle">39</text>
+<text x="485.3" y="751.0" class="tick" text-anchor="middle">40</text>
+<text x="553.3" y="646.0" class="label" text-anchor="start">BPE tokenizer, train and encode</text>
+<text x="553.3" y="660.0" class="name" text-anchor="start">bpe-encode</text>
+<line x1="587.3" y1="736.0" x2="750.0" y2="736.0" class="grid"/>
+<text x="582.3" y="739.5" class="tick" text-anchor="end">−10%</text>
+<line x1="587.3" y1="693.3" x2="750.0" y2="693.3" class="base"/>
+<text x="582.3" y="696.8" class="tick" text-anchor="end">0%</text>
+<line x1="587.3" y1="672.0" x2="750.0" y2="672.0" class="grid"/>
+<text x="582.3" y="675.5" class="tick" text-anchor="end">+5%</text>
+<polyline points="587.3,693.3 607.7,693.3 628.0,693.3 648.3,693.3 668.7,727.4 689.0,725.7 709.3,725.3 729.7,725.3 750.0,688.1" class="line"/>
+<circle cx="587.3" cy="693.3" r="2.2" class="dot"/>
+<circle cx="607.7" cy="693.3" r="2.2" class="dot"/>
+<circle cx="628.0" cy="693.3" r="2.2" class="dot"/>
+<circle cx="648.3" cy="693.3" r="2.2" class="dot"/>
+<polygon points="663.7,723.4 673.7,723.4 668.7,732.4" class="down"/>
+<polygon points="684.0,729.7 694.0,729.7 689.0,720.7" class="up"/>
+<polygon points="704.3,729.3 714.3,729.3 709.3,720.3" class="up"/>
+<circle cx="729.7" cy="725.3" r="2.2" class="dot"/>
+<polygon points="745.0,692.1 755.0,692.1 750.0,683.1" class="up"/>
+<text x="757.0" y="692.1" class="value" text-anchor="start">+1.2%</text>
+<text x="587.3" y="751.0" class="tick" text-anchor="middle">32</text>
+<text x="607.7" y="751.0" class="tick" text-anchor="middle">33</text>
+<text x="628.0" y="751.0" class="tick" text-anchor="middle">34</text>
+<text x="648.3" y="751.0" class="tick" text-anchor="middle">35</text>
+<text x="668.7" y="751.0" class="tick" text-anchor="middle">36</text>
+<text x="689.0" y="751.0" class="tick" text-anchor="middle">37</text>
+<text x="709.3" y="751.0" class="tick" text-anchor="middle">38</text>
+<text x="729.7" y="751.0" class="tick" text-anchor="middle">39</text>
+<text x="750.0" y="751.0" class="tick" text-anchor="middle">40</text>
+<text x="24.0" y="772.0" class="foot" text-anchor="start">Releases 2.0.32-2.0.40 along each axis. Cachegrind's instruction count, one thread; each workload's releases counted one after</text>
+<text x="24.0" y="788.0" class="foot" text-anchor="start">another on one GitHub runner (clang 18.1.3), so a line compares with itself. Lower is faster.</text>
+<text x="24.0" y="804.0" class="foot" text-anchor="start">Source: counts.tsv in history/2026-11-07-v2.0.32-v2.0.40 on the data branch (scripts/history_chart.py).</text>
+</svg>

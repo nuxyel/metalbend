@@ -146,21 +146,103 @@ The scripts were written on one machine (a Core Ultra 7 155H on Linux) and say w
   `powerprofilesctl`; both say `unknown` where they are missing, and the preflight checks every `Mains` supply.
   `GPU=1` needs CUDA (`CUDA_HOME`) and an NVIDIA GPU.
 
+## The release watch
+
+Between my runs on an idle machine, GitHub's runners watch Bend's releases. Once a day,
+`.github/workflows/track.yml` looks for a release of bendlang/bend after the last one it compared. On one, it builds
+that release and the one before it from source and counts every workload with both under Cachegrind
+(`scripts/track.sh`; one job a workload, both Bends in the same job). Cachegrind's counts repeat exactly from run to
+run, so a small move is a real one. A workload is a finding when its instructions move beyond 0.1%, its simulated L1
+data misses beyond 5%, or its output is not its oracle; a regression or a changed output opens an issue here. The
+counts are kept on the `data` branch (`track/`, `docs/format.md`).
+
+```sh
+scripts/count.sh v2.0.40 bpe-encode       # one workload, one Bend: instructions, simulated misses, the hash
+scripts/track.sh v2.0.39 v2.0.40 adamw    # two Bends on some workloads (every workload with none), then the verdict
+```
+
+Replayed on 2.0.39 against 2.0.40, it flags `bpe-encode` alone as a regression (instructions +9.42%, D1 misses 2.03x)
+and 12 workloads as improvements, every output its oracle. Its limits: the caches are simulated (no prefetcher, so
+misses move on another scale than the hardware's; the same `bpe-encode` change is 5.6x in perf's L1 misses), it runs
+one thread and no GPU, and it counts the binaries the runner's clang builds, so its numbers compare two Bends on one
+runner and never stand next to the perf counts of `results/`. Cycles, 16 threads and the GPU stay with `release.sh`
+on an idle machine.
+
+### Bisect
+
+A regression or a changed output is then bisected. `scripts/bisect.sh` runs `git bisect` over bendlang/bend's
+commits between the two releases; each step builds Bend from source at that commit and counts the workload once
+under Cachegrind, and a commit is bad when its count is nearer the new release's than the old one's. The report names
+the first bad commit and its pull request, gives Cachegrind's counts per function at that commit and at its parent,
+and diffs the C the two Bends emit for the workload, by definition. The release watch runs it on GitHub's runners
+(`.github/workflows/bisect.yml`), keeps the report in `track/regressions/` on the `data` branch, and names the commit in
+the issue it opens; it posts nothing on bendlang/bend.
+
+```sh
+scripts/bisect.sh bpe-encode v2.0.39 v2.0.40 ir   # instructions; d1 for the simulated D1 misses, bits for the output
+```
+
+Replayed on `bpe-encode` from 2.0.39 to 2.0.40, it finds both causes of that regression by itself, over 118 commits:
+bendlang/bend#1978 for the instructions (+7.84% at that commit; `span_fade` the function that moved, and the C of
+`span_fade` and `ctr_take` the definitions that changed) in 7 steps, and #2036 for the simulated D1 misses (2.03x, in
+the workload's `bump_go` and the runtime's `rfc_wrap`) in 6 more, both in one job of 1 h 56 min on a runner. On
+`gemm-fork`, the drop to 0.26x the instructions from 2.0.32 to 2.0.33 is #1155 (4 steps over 24 commits, 6 minutes).
+The three reports are in `track/regressions/` on the `data` branch.
+
+## The history
+
+The same counts, back to Bend 2.0.32: `.github/workflows/history.yml` counts every workload on every release from
+2.0.32 to 2.0.40 under Cachegrind, one job a workload with every release counted one after another in it
+(`scripts/history.sh`), so each line comes from one runner and one clang. Thirteen workloads build from 2.0.32 on;
+`read-bf16` and `read-binary` from 2.0.36, since binary-read's C effect does not match the effect interface before it.
+Before 2.0.32 the older checker cannot check the published packages' proofs, so only `read-native` builds there; the
+history starts at 2.0.32, and the workloads are not adapted to older releases. All 127 counts print their oracle: no
+release from 2.0.32 on changed a bit of any workload's output.
+
+![Fifteen small line charts, one per workload, of its instructions on Bend 2.0.32 to 2.0.40 against the first release it builds on. The parallel matrix product, the parallel MNIST step, the transformer block and attention drop by 67-74% at 2.0.33 and stay there; softmax and cross-entropy drops 59% at 2.0.39; the MNIST step falls 34% over 2.0.39 and 2.0.40; the BF16 read 24% from 2.0.36, most of it at 2.0.40; RMSNorm 16%; the BPE tokenizer falls 8% at 2.0.36 and rises 9% at 2.0.40, ending 1.2% above 2.0.32; the two file reads do not move.](docs/history.svg)
+
+| release | fewer instructions | more | unchanged | biggest moves |
+|---|---:|---:|---:|---|
+| 2.0.33 | 4 | 0 | 9 | `gemm-fork` 0.26x, `block-step` 0.29x, `mnist-fork` 0.30x, `attention-step` 0.33x |
+| 2.0.34 | 0 | 0 | 13 | - |
+| 2.0.35 | 3 | 0 | 10 | `attention-step` -1.92%, `block-step` -0.61%, `rmsnorm-step` -0.47% |
+| 2.0.36 | 4 | 2 | 7 | `bpe-encode` -7.98%, `rmsnorm-step` -6.73%, `softmax-ce` -1.92%; `read-bf16` and `read-binary` build |
+| 2.0.37 | 0 | 3 | 12 | `bpe-encode` +0.42%, `softmax-ce` +0.31%, `mnist-step` +0.14% |
+| 2.0.38 | 1 | 2 | 12 | `read-bf16` -2.16%, `softmax-ce` +1.83%, `bpe-encode` +0.12% |
+| 2.0.39 | 3 | 0 | 12 | `softmax-ce` 0.41x, `mnist-step` -28.18%, `mnist-fork` -2.36% |
+| 2.0.40 | 12 | 1 | 2 | `read-bf16` -22.47%, `mnist-fork` -10.61%, `bpe-encode` +9.42% (and 2.03x the D1 misses) |
+
+A move is one beyond 0.1% in instructions or 5% in simulated D1 misses, as the release watch counts it. From 2.0.32 to
+2.0.40 the four workloads that split their work into parallel blocks run about a quarter of the instructions on one
+thread (0.26-0.31x), `softmax-ce` 0.40x, `mnist-step` 34% fewer, `rmsnorm-step` 16% fewer and `read-bf16` 24% fewer
+than on 2.0.36; `bpe-encode` ends 1.2% above 2.0.32 (2.0.36's 8% given back by 2.0.40), and the two other file reads
+do not move. The counts are the runner's (clang 18), not this machine's, so they differ from `results/`' perf counts
+(2.0.39's `softmax-ce` is 59% fewer instructions here, 65% with perf on my machine). The run that counted them,
+`history/2026-11-07-v2.0.32-v2.0.40/` on the `data` branch, also counted 2.0.39 and 2.0.40 as the release watch's
+replay had on another runner: 28 of the 30 counts are the same to the instruction, and `read-bf16`'s two differ by
+403 instructions each (0.0003%). Cycles on 2.0.32-2.0.34 wait for an idle machine (`scripts/history_cycles.sh`).
+
+```sh
+scripts/history.sh adamw $(scripts/history.sh --releases v2.0.32 v2.0.40)   # one workload on every release
+python3 -I scripts/history_report.py <folder>    # steps.tsv, coverage.tsv, report.md from its counts.tsv and gaps.tsv
+python3 -I scripts/history_chart.py <folder>     # docs/history.svg
+```
+
 ## Checks
 
 ```sh
 make setup     # Bend 2.0.40 (checked by SHA256), then clang and Python 3 checked
 make check     # every workload on 1 and 16 threads and every C target, against oracles.tsv
 make check-gpu # every GPU target on the GPU and with --gpu off on 1 and 16 threads; skips if there is no GPU
-make test      # analyze.py, scripts/chart.py, oracle_diff.py, run.sh's guard and PMU choice, the GPU lane's skip, release.sh on a fake upstream
+make test      # analyze.py, scripts/chart.py, oracle_diff.py, run.sh's guard and PMU choice, the GPU lane's skip, release.sh on a fake upstream, count.sh, track_verdict.py, bisect.sh and the history's scripts on fakes
 make laws      # the ten laws (with --verdict) and their 22 mutants, each refused
 make mutate    # break the corpus and the tools on purpose; every mutant must be caught
 ```
 
 `oracles.tsv` holds each workload's hash, as `run.sh` records it, from a run where every version and every C target
 printed it. CI runs all but `make check-gpu` on every push, bits only (GitHub's runners cannot count with `perf`, and
-have no GPU). `make check-gpu` is local: with no toolkit or no GPU it says why and passes. `make mutate` has 70
-mutants: 64 caught, and 6 that survive with their reason written next to them (five compute the same bits, one changes
+have no GPU). `make check-gpu` is local: with no toolkit or no GPU it says why and passes. `make mutate` has 79
+mutants: 73 caught, and 6 that survive with their reason written next to them (five compute the same bits, one changes
 what no run reaches). The three block workloads print a hash of their final weights and AdamW moments after the
 losses, so one rounding changed inside a layer (SiLU's, say) is caught even when every loss keeps its bits.
 

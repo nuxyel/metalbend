@@ -92,6 +92,78 @@ larger spread between rounds, with floors of 0.1% for instructions and 1% for cy
 A folder's `README.md`, written by hand, says what the run was for and the state of the machine. A run on a busy
 machine is a diagnosis, not a result, and its folder does not go in `results/`. `results/` is append-only.
 
+## The release watch: `track/` on the `data` branch
+
+The release watch (`.github/workflows/track.yml`, from 1.1.0) counts two Bends on GitHub's runners under Cachegrind,
+not `perf`. Its counts are a simulator's on the runner's clang: they never go in `runs.tsv`'s `instructions` column,
+and they are compared only between two Bends counted on one runner, in one folder. They live on the `data` branch, so
+`main` stays small:
+
+- `track/last-tag`: the last release the daily run compared; the next one looks for the release after it.
+- `track/index.tsv`: one line per comparison: `folder`, `old`, `new`, `old_commit`, `new_commit`, `trigger` (`daily`,
+  or `by-hand` for refs given to a manual run), `findings` (workloads that moved or changed their output),
+  `for_issue` (those that make an issue: a regression, a mixed change or a changed output), `run` (its URL).
+- `track/runs/<date>-<old>-<new>/` (`-2`, `-3` for a second comparison of the same refs that day), append-only:
+  - `counts.tsv`, `scripts/count.sh`'s rows, one per workload and Bend: `ref` (as given), `commit` (bendlang/bend's;
+    `sha256:<16 hex>` for a released binary counted by hand), `version` (what it reports), `workload`, `ir`
+    (Cachegrind's instructions, one thread), `d1_misses` (simulated L1 data misses, reads and writes), `ll_misses`
+    (simulated last-level misses, instructions and data), `hash`, `bits` (`ok`, `DIFF`, `compile-failed`,
+    `run-failed`; the counts are `-` for the last two), `clang`, `valgrind`. The caches are given to Cachegrind
+    explicitly (L1i 64 KiB 16-way, L1d 48 KiB 12-way, LL 24 MiB 12-way, 64-byte lines), so every runner simulates the
+    same ones.
+  - `env.tsv`, `key` and `value`: `old`, `old_commit`, `new`, `new_commit`, `runner` (the image), `clang`, `valgrind`,
+    `bun`, `metalbend` (the commit that counted), `date`, `cpus` (the runners' CPU models), `jobs`, `run`.
+  - `verdict.tsv`, `scripts/track_verdict.py`'s: `workload`, `verdict` (`regression`, `improvement`, `mixed`, `same`,
+    `bits`, `no-baseline`, `missing`), `ir_old`, `ir_new`, `ir_change` (relative, `0.093300` for +9.33%), `d1_old`,
+    `d1_new`, `d1_change`, `ll_old`, `ll_new`, `bits_old`, `bits_new`, `why`. A workload is a finding when its
+    instructions move beyond 0.1%, its D1 misses beyond 5%, or its output on the new Bend is not its oracle.
+  - `report.md`, the same as a table; `issue.md` and `issue-title.txt` when there is a regression, a mixed change or a
+    changed output (the daily run opens that issue in this repository).
+- `track/regressions/<new>-<workload>-<metric>/` (`-2` for a second bisect of the same ones), append-only: where
+  `scripts/bisect.sh` found a change, from `.github/workflows/bisect.yml` (by hand, or called by the daily run on each
+  regression or changed output). `<metric>` is `ir` (instructions), `d1` (simulated D1 misses) or `bits` (the output).
+  - `counts.tsv`: every count the bisect took, `count.sh`'s rows (an end's `ref` is its name, a step's its commit).
+  - `steps.tsv`: one line a commit `git bisect` tried: `commit`, `verdict` (`good`, `bad`, `skip`), `ir`,
+    `d1_misses`, `bits`, `why`, `subject`. A commit is bad when its count is nearer the bad end's than the good end's;
+    one whose Bend or workload does not build, or whose output is not its oracle, is skipped (for `bits`, a changed
+    output is bad).
+  - `report.tsv`, `key` and `value`: `workload`, `metric`, `good`, `good_commit`, `bad`, `bad_commit`, `first_bad`,
+    `parent`, `subject`, `decided` (`no` when only skipped commits were left; then `candidates` lists them), `pr`,
+    `pr_title`, `pr_url` (the commit's pull request on bendlang/bend), `step_change` (parent to first bad commit),
+    `range_change` (good to bad end), `functions_moved` (the functions carrying at least 5% of the step's change),
+    `c_changed` (the definitions whose emitted C differs; `(top-level)` for the lines outside any), `commits` (in the
+    range), `clang`, `valgrind`, `run`.
+  - `functions.tsv`: Cachegrind's count per function at the parent and at the first bad commit (instructions, or D1
+    misses for `d1`): `function`, `parent`, `commit`, `delta`, `share` (of the step's change), `moved`.
+  - `c.diff`: the diff of the C each of the two Bends emits for the workload (`bend main.bend -o <file>.c`);
+    `report.md` shows the definitions that changed.
+  - `report.md`, all of it as text; `bisect.log`, `git bisect log`.
+
+## The history: `history/` on the `data` branch
+
+The history (`.github/workflows/history.yml`, from 1.1.0, by hand) counts every workload on a range of releases under
+Cachegrind, as the release watch does, with one difference: a job counts one workload on every release of the range,
+one after another (`scripts/history.sh`), instead of two releases a job. So each release is counted once, and a
+workload's whole line comes from one runner and one clang; two workloads may come from two runners, so a line compares
+with itself, never with another workload's. The same counts' rules as `track/` apply: never in `runs.tsv`, never
+compared across folders.
+
+- `history/index.tsv`: one line per run: `folder`, `from`, `to`, `workloads`, `releases`, `counts` (rows whose output
+  is its oracle), `gaps` (rows where the workload does not build or run), `run` (its URL).
+- `history/<date>-<from>-<to>/` (`-2`, `-3` for a second run of the same range that day), append-only:
+  - `counts.tsv`: `scripts/count.sh`'s rows as in `track/`, one per workload and release, `ref` the release's tag.
+  - `gaps.tsv`: `release`, `workload`, `bits` (`compile-failed` or `run-failed`), `why` (the first error line of the
+    build's log or Cachegrind's report). A workload that does not build on a release is recorded, never adapted.
+  - `steps.tsv`, `scripts/history_report.py`'s: one row per workload and step from a release to the next, `old`, `new`,
+    `workload`, `verdict` (the release watch's, plus `gap`: it builds on neither release, and `first`: on the new one
+    only), `ir_old`, `ir_new`, `ir_change`, `d1_old`, `d1_new`, `d1_change`, `why`.
+  - `coverage.tsv`: `workload`, then one column per release: `ok`, or its `bits` and `why`.
+  - `report.md`: per release, how many workloads got faster, slower or stayed the same and the biggest moves; per
+    workload, its change from its first release to the last.
+  - `env/<workload>.tsv`, each job's `key` and `value`: `workload`, `releases`, `cpu`, `runner`, `clang`, `valgrind`,
+    `bun`, `metalbend`, `date`, `run`.
+- `docs/history.svg` on `main` is drawn from one folder's `counts.tsv` by `scripts/history_chart.py`.
+
 ## Adding a workload
 
 1. `workloads/<name>/main.bend`, as above; `native.c` and `gpu.bend` if it has them.
