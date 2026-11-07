@@ -2,14 +2,16 @@
 on one machine), compared workload by workload.
 
     python3 -I scripts/track_verdict.py <counts.tsv> <old ref> <new ref> <out dir> [--run <url>] [--store <path>]
+        [--expect "<workload> ..."]
 
 A workload is a finding when its instructions (Ir) move beyond 0.1% of the old count, its simulated D1 misses beyond
 5%, or its output is not its oracle on the new Bend. Cachegrind's counts repeat exactly, so the thresholds are about
 what is worth reading, not about noise. Verdicts: regression (a count went up), improvement (down), mixed (one up,
 one down), same, bits (the new Bend's output is not the oracle, or no longer builds or runs), no-baseline (the old
-Bend could not give a count to compare against), missing (no row for a side). Writes verdict.tsv and report.md into
-the out dir, and issue.md with issue-title.txt when there is something to open an issue about: a regression, a mixed
-change or bits. Prints one line per finding and a last line with the counts; exits 0, or 2 on a bad counts file.
+Bend could not give a count to compare against), missing (no row for a side, or none at all for a workload of
+--expect). Writes verdict.tsv and report.md into the out dir, and issue.md with issue-title.txt when there is
+something to open an issue about: a regression, a mixed change or bits. Prints one line per finding and a last line
+with the counts; exits 0, or 2 on a bad counts file.
 """
 import csv
 import sys
@@ -42,6 +44,8 @@ def shown(c):
 def judge(old, new):
     """The verdict on one workload from its two rows (dicts of count.sh's columns, or None), and why."""
     if new is None or old is None:
+        if new is None and old is None:
+            return "missing", "no count for either Bend"
         return "missing", "no count for the " + ("new" if new is None else "old") + " Bend"
     if new["bits"] != "ok":
         if new["bits"] == "DIFF":
@@ -171,7 +175,7 @@ def main(argv):
     args, opts = [], {}
     it = iter(argv)
     for a in it:
-        if a in ("--run", "--store"):
+        if a in ("--run", "--store", "--expect"):
             opts[a[2:]] = next(it, None)
         else:
             args.append(a)
@@ -184,6 +188,8 @@ def main(argv):
     except (OSError, KeyError, ValueError) as e:
         print(f"track_verdict: {e}", file=sys.stderr)
         return 2
+    for w in (opts.get("expect") or "").split():
+        sides.setdefault(w, {})
     rows = verdicts(sides)
     found, flagged = write(out, rows, old_ref, new_ref, sides, opts.get("run"), opts.get("store"))
     for r in found:
