@@ -6,9 +6,12 @@
 #   scripts/count.sh ~/.bend-2.0.39/bin/bend adamw    # a Bend binary, or a wrapper from scripts/bend_main.sh
 #   scripts/count.sh path/to/bend adamw               # a bendlang/bend source tree (its bend2/main.ts, bun installed)
 #   HEADER=1 scripts/count.sh v2.0.40 adamw           # the column names first
-# It prints one TSV row: ref, commit, version, workload, ir, d1_misses, ll_misses, hash, bits, clang, valgrind. bits
-# is ok, DIFF (the hash is not the workload's oracle), compile-failed or run-failed (then the counts are "-"), and the
-# exit status 0, 1, 3 or 4 with it; 2 when the Bend cannot be built or named. A ref is built by scripts/bend_main.sh
+#   scripts/count.sh --header                         # only them
+#   REF=v2.0.40 scripts/count.sh build/bin/at-v2.0.40 adamw   # a Bend already built, its row named by the ref
+# It prints one TSV row: ref (REF, or the first argument), commit, version, workload, ir, d1_misses, ll_misses, hash,
+# bits, clang, valgrind. bits is ok, DIFF (the hash is not the workload's oracle), compile-failed or run-failed (then
+# the counts are "-"), and the exit status 0, 1, 3 or 4 with it; 2 when the Bend cannot be built or named, and the
+# commit is the source tree's (a wrapper's or a ref's) or a binary's sha256. A ref is built by scripts/bend_main.sh
 # into build/bin/at-<ref> (its tree under build/src, kept by commit); the workload into build/count/<commit>/<w>, built
 # again only when missing, older than its main.bend or a file of lib/, or with REBUILD=1; Cachegrind's file for
 # cg_annotate goes next to it (<w>.cachegrind), the output, Cachegrind's report and the build's log too.
@@ -18,9 +21,10 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 export BEND_NO_TELEMETRY=1
+COLS="ref\tcommit\tversion\tworkload\tir\td1_misses\tll_misses\thash\tbits\tclang\tvalgrind"
+[ "${1:-}" = --header ] && { echo -e "$COLS"; exit 0; }
 arg=${1:?usage: scripts/count.sh <bend ref, binary or source tree> <workload>}
 w=${2:?usage: scripts/count.sh <bend ref, binary or source tree> <workload>}
-COLS="ref\tcommit\tversion\tworkload\tir\td1_misses\tll_misses\thash\tbits\tclang\tvalgrind"
 [ "${HEADER:-0}" = 1 ] && echo -e "$COLS"
 [ -f "workloads/$w/main.bend" ] || { echo "no workload $w" >&2; exit 2; }
 vgbin=$(command -v valgrind) || { echo "count.sh needs valgrind" >&2; exit 2; }
@@ -50,7 +54,7 @@ vg=$("$vgbin" --version | sed 's/^valgrind-//')
 want=$(awk -F'\t' -v w="$w" '$1 == w {print $2}' oracles.tsv)
 out=$PWD/build/count/$(safe "$(echo "${commit#sha256:}" | cut -c1-12)")
 mkdir -p "$out"
-row() { echo -e "$arg\t$commit\t$version\t$w\t$1\t$2\t$3\t$4\t$5\t${clang:-?}\t$vg"; }
+row() { echo -e "${REF:-$arg}\t$commit\t$version\t$w\t$1\t$2\t$3\t$4\t$5\t${clang:-?}\t$vg"; }
 
 # the inputs of the read workloads, deterministic (make data)
 [ -f data/dense.bin ] || python3 -I lib/gen_dense.py > /dev/null
