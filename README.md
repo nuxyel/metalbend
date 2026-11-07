@@ -174,8 +174,8 @@ On Bend 2.0.35-2.0.40 (`NOTES.md` has each finding with its date and result fold
   time. `read-binary` is unchanged and `gemm-fork` runs 0.9% more instructions (its cycles within noise). One
   regression: `bpe-encode` runs 9.3% more instructions and 28.9% more cycles, the same tokens. I traced it to two
   changes upstream, each confirmed by building 2.0.40 with it undone: bendlang/bend#1978 makes every take of a shared
-  node a call on the host (the instructions), and bendlang/bend#2036 gives the program 5.6x the L1 misses (most of the
-  cycles).
+  node a call on the host (the instructions, bendlang/bend#2081), and bendlang/bend#2036 gives the program 5.6x the L1
+  misses (most of the cycles, bendlang/bend#2082).
 - **bendlang/bend#1781 on the CPU**: 2.0.40's `Array.get_unchecked` (bendlang/bend#1880) skips the index mask, and
   with it the probe's matrix product runs at 1.04x C's cycles (1.30x with checked reads) and its dot product at 1.04x
   (1.78x), with the same bits (`probes/1781/`). bend-ml's tensor-fork 0.1.7.0 reads its products' cells with it.
