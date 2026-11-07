@@ -168,6 +168,45 @@ one thread and no GPU, and it counts the binaries the runner's clang builds, so 
 runner and never stand next to the perf counts of `results/`. Cycles, 16 threads and the GPU stay with `release.sh`
 on an idle machine.
 
+## The history
+
+The same counts, back to Bend 2.0.32: `.github/workflows/history.yml` counts every workload on every release from
+2.0.32 to 2.0.40 under Cachegrind, one job a workload with every release counted one after another in it
+(`scripts/history.sh`), so each line comes from one runner and one clang. Thirteen workloads build from 2.0.32 on;
+`read-bf16` and `read-binary` from 2.0.36, since binary-read's C effect does not match the effect interface before it.
+Before 2.0.32 the older checker cannot check the published packages' proofs, so only `read-native` builds there; the
+history starts at 2.0.32, and the workloads are not adapted to older releases. All 127 counts print their oracle: no
+release from 2.0.32 on changed a bit of any workload's output.
+
+![Fifteen small line charts, one per workload, of its instructions on Bend 2.0.32 to 2.0.40 against the first release it builds on. The parallel matrix product, the parallel MNIST step, the transformer block and attention drop by 67-74% at 2.0.33 and stay there; softmax and cross-entropy drops 59% at 2.0.39; the MNIST step falls 34% over 2.0.39 and 2.0.40; the BF16 read 24% from 2.0.36, most of it at 2.0.40; RMSNorm 16%; the BPE tokenizer falls 8% at 2.0.36 and rises 9% at 2.0.40, ending 1.2% above 2.0.32; the two file reads do not move.](docs/history.svg)
+
+| release | fewer instructions | more | unchanged | biggest moves |
+|---|---:|---:|---:|---|
+| 2.0.33 | 4 | 0 | 9 | `gemm-fork` 0.26x, `block-step` 0.29x, `mnist-fork` 0.30x, `attention-step` 0.33x |
+| 2.0.34 | 0 | 0 | 13 | - |
+| 2.0.35 | 3 | 0 | 10 | `attention-step` -1.92%, `block-step` -0.61%, `rmsnorm-step` -0.47% |
+| 2.0.36 | 4 | 2 | 7 | `bpe-encode` -7.98%, `rmsnorm-step` -6.73%, `softmax-ce` -1.92%; `read-bf16` and `read-binary` build |
+| 2.0.37 | 0 | 3 | 12 | `bpe-encode` +0.42%, `softmax-ce` +0.31%, `mnist-step` +0.14% |
+| 2.0.38 | 1 | 2 | 12 | `read-bf16` -2.16%, `softmax-ce` +1.83%, `bpe-encode` +0.12% |
+| 2.0.39 | 3 | 0 | 12 | `softmax-ce` 0.41x, `mnist-step` -28.18%, `mnist-fork` -2.36% |
+| 2.0.40 | 12 | 1 | 2 | `read-bf16` -22.47%, `mnist-fork` -10.61%, `bpe-encode` +9.42% (and 2.03x the D1 misses) |
+
+A move is one beyond 0.1% in instructions or 5% in simulated D1 misses, as the release watch counts it. From 2.0.32 to
+2.0.40 the four workloads that split their work into parallel blocks run about a quarter of the instructions on one
+thread (0.26-0.31x), `softmax-ce` 0.40x, `mnist-step` 34% fewer, `rmsnorm-step` 16% fewer and `read-bf16` 24% fewer
+than on 2.0.36; `bpe-encode` ends 1.2% above 2.0.32 (2.0.36's 8% given back by 2.0.40), and the two other file reads
+do not move. The counts are the runner's (clang 18), not this machine's, so they differ from `results/`' perf counts
+(2.0.39's `softmax-ce` is 59% fewer instructions here, 65% with perf on my machine). The run that counted them,
+`history/2026-11-07-v2.0.32-v2.0.40/` on the `data` branch, also counted 2.0.39 and 2.0.40 as the release watch's
+replay had on another runner: 28 of the 30 counts are the same to the instruction, and `read-bf16`'s two differ by
+403 instructions each (0.0003%). Cycles on 2.0.32-2.0.34 wait for an idle machine (`scripts/history_cycles.sh`).
+
+```sh
+scripts/history.sh adamw $(scripts/history.sh --releases v2.0.32 v2.0.40)   # one workload on every release
+python3 -I scripts/history_report.py <folder>    # steps.tsv, coverage.tsv, report.md from its counts.tsv and gaps.tsv
+python3 -I scripts/history_chart.py <folder>     # docs/history.svg
+```
+
 ## Checks
 
 ```sh
