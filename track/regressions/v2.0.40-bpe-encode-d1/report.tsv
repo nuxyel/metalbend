@@ -1,0 +1,23 @@
+key	value
+workload	bpe-encode
+metric	d1
+good	v2.0.39
+good_commit	a3efe8a3801f423827424227172eed9802c5e6cb
+bad	v2.0.40
+bad_commit	624dd9f4607cd29b0871a9b96d413bfb11e92f52
+first_bad	3c1f0d3a0937aaae164963eefb12065a6ac369ad
+parent	4024f04dc65527d9783481ba0672b818039c80d1
+subject	perf(comp): a wide def's boxed record stays boxed until a use needs it (#2036)
+decided	yes
+candidates	
+pr	2036
+pr_title	perf(comp): a wide def's boxed record stays boxed until a use needs it
+pr_url	https://github.com/bendlang/bend/pull/2036
+step_change	2.03x
+range_change	2.03x
+functions_moved	WL_FID_0x559a0abb492a951db15be435191b6d0a_main_bump_go rfc_wrap WL_FID_0x559a0abb492a951db15be435191b6d0a_main_bump_go_k1
+c_changed	(outside any function) WL_FID_0x559a0abb492a951db15be435191b6d0a_main_bump_go WL_FID_0x559a0abb492a951db15be435191b6d0a_main_count_go WL_FID_0x559a0abb492a951db15be435191b6d0a_main_count_go_k1 WL_FID_0x559a0abb492a951db15be435191b6d0a_main_merge_go WL_FID_0x559a0abb492a951db15be435191b6d0a_main_merge_go_k3 WL_FID_0x559a0abb492a951db15be435191b6d0a_main_merge_go_k5 spin_0x559a0abb492a951db15be435191b6d0a_main_peek
+commits	118
+clang	18.1.3
+valgrind	3.22.0
+run	https://github.com/nuxyel/metalbend/actions/runs/42384646460

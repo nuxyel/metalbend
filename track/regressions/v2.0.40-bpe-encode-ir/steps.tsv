@@ -1,0 +1,8 @@
+commit	verdict	ir	d1_misses	bits	why	subject
+6a1f782a56cf89988cad0fa03c81927aa3c31dcc	good	195828415999	1108191151	ok	instructions +0.05% from the good end (+9.42% at the bad end)	fix(demos): keep the sort and sum specs outside the editable programs (#1932)
+3ca3df3209ebb0fac4b80e41dac18b41442e6c58	bad	211174656750	1108191133	ok	instructions +7.89% from the good end (+9.42% at the bad end)	fix(cli): reject colliding output requests before writing (#2010)
+1cecb123565d3b4af95314c05b3b57dcfd17f61a	good	195828416010	1108191151	ok	instructions +0.05% from the good end (+9.42% at the bad end)	fix(comp): C comments keep Unicode separators (#1972)
+0d35f6da9da0ab471c60c047c4c7bada4590e2fb	bad	211174656750	1108191133	ok	instructions +7.89% from the good end (+9.42% at the bad end)	On Metal, the shared-node half of a take is a call, not code inlined into the taken match (#1978)
+faeb02eaa164d532f4cf13f1a455cbebda56ac40	good	195828416010	1108191151	ok	instructions +0.05% from the good end (+9.42% at the bad end)	fix(demos): app_triangle_2d's click laws read the triangle from SPEC.bend (#1982)
+e9d269b588f4ed39166dca87a0acb4d5a9be4f9f	good	195828416010	1108191151	ok	instructions +0.05% from the good end (+9.42% at the bad end)	fix(io): a JS File.read's max is a cap, not its buffer size (#1983) (#1985)
+a346ded0e8aa1dd433c73db96856900c53e16214	good	195828416010	1108191151	ok	instructions +0.05% from the good end (+9.42% at the bad end)	perf(js): avoid backtracking in GPU size validation (#1993)

@@ -1,0 +1,7 @@
+commit	verdict	ir	d1_misses	bits	why	subject
+6a1f782a56cf89988cad0fa03c81927aa3c31dcc	good	195828415999	1108191151	ok	D1 misses -0.00% from the good end (2.03x at the bad end)	fix(demos): keep the sort and sum specs outside the editable programs (#1932)
+3ca3df3209ebb0fac4b80e41dac18b41442e6c58	good	211174656750	1108191133	ok	D1 misses -0.00% from the good end (2.03x at the bad end)	fix(cli): reject colliding output requests before writing (#2010)
+2534c1555cfad255e227695436266a0218db884b	good	211174656755	1108191133	ok	D1 misses -0.00% from the good end (2.03x at the bad end)	perf(c): blk_new fills whole elements, clones keep runs; JS shares the cell depth wall (#1946)
+c8dde1eeece5e9a2c3f6134e10ad10644329ddb9	bad	214161062646	2245585069	ok	D1 misses 2.03x from the good end (2.03x at the bad end)	perf(comp): an unfold builds the callee's body once (#2051)
+3c1f0d3a0937aaae164963eefb12065a6ac369ad	bad	214161062646	2245585069	ok	D1 misses 2.03x from the good end (2.03x at the bad end)	perf(comp): a wide def's boxed record stays boxed until a use needs it (#2036)
+4024f04dc65527d9783481ba0672b818039c80d1	good	211174656755	1108191133	ok	D1 misses -0.00% from the good end (2.03x at the bad end)	fix(demos): app_slash_boss_3d's frame loop counts down a fuel, so its proofs check (#2039)

@@ -1,0 +1,16 @@
+# bad: [624dd9f4607cd29b0871a9b96d413bfb11e92f52] Bend 2.0.40
+# good: [a3efe8a3801f423827424227172eed9802c5e6cb] Bend 2.0.39 (#1840)
+git bisect start '--no-checkout' '624dd9f4607cd29b0871a9b96d413bfb11e92f52' 'a3efe8a3801f423827424227172eed9802c5e6cb'
+# good: [6a1f782a56cf89988cad0fa03c81927aa3c31dcc] fix(demos): keep the sort and sum specs outside the editable programs (#1932)
+git bisect good 6a1f782a56cf89988cad0fa03c81927aa3c31dcc
+# good: [3ca3df3209ebb0fac4b80e41dac18b41442e6c58] fix(cli): reject colliding output requests before writing (#2010)
+git bisect good 3ca3df3209ebb0fac4b80e41dac18b41442e6c58
+# good: [2534c1555cfad255e227695436266a0218db884b] perf(c): blk_new fills whole elements, clones keep runs; JS shares the cell depth wall (#1946)
+git bisect good 2534c1555cfad255e227695436266a0218db884b
+# bad: [c8dde1eeece5e9a2c3f6134e10ad10644329ddb9] perf(comp): an unfold builds the callee's body once (#2051)
+git bisect bad c8dde1eeece5e9a2c3f6134e10ad10644329ddb9
+# bad: [3c1f0d3a0937aaae164963eefb12065a6ac369ad] perf(comp): a wide def's boxed record stays boxed until a use needs it (#2036)
+git bisect bad 3c1f0d3a0937aaae164963eefb12065a6ac369ad
+# good: [4024f04dc65527d9783481ba0672b818039c80d1] fix(demos): app_slash_boss_3d's frame loop counts down a fuel, so its proofs check (#2039)
+git bisect good 4024f04dc65527d9783481ba0672b818039c80d1
+# first 'bad' commit: [3c1f0d3a0937aaae164963eefb12065a6ac369ad] perf(comp): a wide def's boxed record stays boxed until a use needs it (#2036)
