@@ -1,0 +1,2 @@
+workload	verdict	ir_old	ir_new	ir_change	d1_old	d1_new	d1_change	ll_old	ll_new	bits_old	bits_new	why
+bpe-encode	regression	195728925870	214161062646	0.094172	1108191529	2245585069	1.026351	185845	164994	ok	ok	instructions +9.42%, D1 misses 2.03x

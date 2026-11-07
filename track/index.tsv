@@ -1,2 +1,3 @@
 folder	old	new	old_commit	new_commit	trigger	findings	for_issue	run
 2026-11-07-v2.0.39-v2.0.40	v2.0.39	v2.0.40	a3efe8a3801f423827424227172eed9802c5e6cb	624dd9f4607cd29b0871a9b96d413bfb11e92f52	by-hand	13	1	https://github.com/nuxyel/metalbend/actions/runs/42377905816
+2026-11-07-v2.0.39-v2.0.40-2	v2.0.39	v2.0.40	a3efe8a3801f423827424227172eed9802c5e6cb	624dd9f4607cd29b0871a9b96d413bfb11e92f52	by-hand	1	1	https://github.com/nuxyel/metalbend/actions/runs/42384646460
