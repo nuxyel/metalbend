@@ -174,7 +174,7 @@ on an idle machine.
 make setup     # Bend 2.0.40 (checked by SHA256), then clang and Python 3 checked
 make check     # every workload on 1 and 16 threads and every C target, against oracles.tsv
 make check-gpu # every GPU target on the GPU and with --gpu off on 1 and 16 threads; skips if there is no GPU
-make test      # analyze.py, scripts/chart.py, oracle_diff.py, run.sh's guard and PMU choice, the GPU lane's skip, release.sh on a fake upstream, count.sh and track_verdict.py on fakes
+make test      # analyze.py, scripts/chart.py, oracle_diff.py, run.sh's guard and PMU choice, the GPU lane's skip, release.sh on a fake upstream, count.sh, track_verdict.py and the history's scripts on fakes
 make laws      # the ten laws (with --verdict) and their 22 mutants, each refused
 make mutate    # break the corpus and the tools on purpose; every mutant must be caught
 ```
