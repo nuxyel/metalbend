@@ -58,6 +58,7 @@ def tests(module):
 
 ANALYZE, CHART, GUARD = tests("test_analyze"), tests("test_chart"), tests("test_run_guard")
 COUNT, VERDICT = tests("test_count"), tests("test_track_verdict")
+BISECT = tests("test_bisect")
 
 # (name, file, before, after, gate, expected): expected is "caught", or the reason the mutant may survive
 MUTANTS = [
@@ -235,6 +236,17 @@ MUTANTS = [
      "D1_LIMIT = 0.05", "D1_LIMIT = 0.1", VERDICT, "caught"),
     ("track_verdict.py: an improvement opens an issue", "scripts/track_verdict.py",
      'ISSUE = ("regression", "mixed", "bits")', 'ISSUE = ("regression", "mixed", "bits", "improvement")', VERDICT,
+     "caught"),
+    ("bisect_report.py: a commit is bad on any move", "scripts/bisect_report.py",
+     'side = "bad" if 2 * abs(v - g) > abs(b - g) else "good"', 'side = "bad" if abs(v - g) > 0 else "good"', BISECT,
+     "caught"),
+    ("bisect_report.py: a changed output decides an instructions bisect", "scripts/bisect_report.py",
+     'if x["bits"] != "ok":\n        return "skip", x["bits"] if',
+     'if x["bits"] in ("compile-failed", "run-failed"):\n        return "skip", x["bits"] if', BISECT, "caught"),
+    ("bisect_report.py: D1 misses per function are the reads alone", "scripts/bisect_report.py",
+     '"d1": c[ix["D1mr"]] + c[ix["D1mw"]]}', '"d1": c[ix["D1mr"]]}', BISECT, "caught"),
+    ("bisect_report.py: the plan bisects an improvement", "scripts/bisect_report.py",
+     'if r[col] != "-" and float(r[col]) > lim]', 'if r[col] != "-" and abs(float(r[col])) > lim]', BISECT,
      "caught"),
 ]
 
