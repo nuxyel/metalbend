@@ -29,8 +29,8 @@ class Report(unittest.TestCase):
                 count("v2.0.9", "read", 0, bits="compile-failed"), count("v2.0.10", "read", 0, bits="compile-failed"),
                 count("v2.0.11", "read", 500, d1=300)]
         (d / "counts.tsv").write_text("\n".join([HEAD] + rows) + "\n")
-        (d / "gaps.tsv").write_text("release\tworkload\tbits\twhy\nv2.0.9\tread\tcompile-failed\terror: old ABI\n"
-                                    "v2.0.10\tread\tcompile-failed\terror: old ABI\n")
+        (d / "gaps.tsv").write_text("release\tworkload\tbits\twhy\nv2.0.9\tread\tcompile-failed\tr.c:12:3: error: old ABI\n"
+                                    "v2.0.10\tread\tcompile-failed\tr.c:19:3: error: old ABI\n")
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(self.run_main(), 0)
 
@@ -59,7 +59,7 @@ class Report(unittest.TestCase):
 
     def test_coverage_names_the_reason(self):
         cov = {c["workload"]: c for c in self.tsv("coverage.tsv")}
-        self.assertEqual(cov["read"]["v2.0.9"], "compile-failed: error: old ABI")
+        self.assertEqual(cov["read"]["v2.0.9"], "compile-failed: r.c:12:3: error: old ABI")
         self.assertEqual(cov["read"]["v2.0.11"], "ok")
 
     def test_the_report(self):

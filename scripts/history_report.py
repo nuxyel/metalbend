@@ -12,6 +12,7 @@ workload: its change from its first release to its last). Prints the per-release
 folder.
 """
 import csv
+import re
 import sys
 from pathlib import Path
 
@@ -150,7 +151,8 @@ def main():
         md += ["", "Not counted (the workload does not build or run there; recorded, not adapted):", ""]
         for w in sorted({g[0] for g in gaps}):
             rels = [g[1] for g in gaps if g[0] == w]
-            reasons = sorted({g[2] for g in gaps if g[0] == w})
+            # one reason however many releases give it: the C file's line and column moves between releases
+            reasons = sorted({re.sub(r"\S+\.c:\d+:\d+: ", "", g[2]) for g in gaps if g[0] == w})
             md.append(f"- {w}: {', '.join(rels)} ({'; '.join(reasons)})")
     (folder / "report.md").write_text("\n".join(md) + "\n")
     for t in table:
