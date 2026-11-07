@@ -152,8 +152,9 @@ class Arithmetic(unittest.TestCase):
         self.assertIn("scripts/bisect.sh w v1 v2 ir", md)
         self.assertTrue((out / "c.diff").read_text().startswith("--- pppppppppppp.c"))
         section = "\n".join(br.issue_section([out / "report.tsv"]))
+        self.assertNotIn("/pull/", section)   # no link that would reach bendlang/bend's timeline
         self.assertIn("- **w, instructions**: [`ffffffffffff`](https://github.com/bendlang/bend/commit/" + "f" * 40 +
-                      ") ([#1978](https://github.com/bendlang/bend/pull/1978) On Metal, a take is a call), +30.00% at "
+                      ") (`bendlang/bend#1978`, On Metal, a take is a call), +30.00% at "
                       "that commit, +30.00% over the range; moved most: `span_fade`; its C changed in `span_fade`.",
                       section)
 
