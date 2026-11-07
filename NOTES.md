@@ -555,7 +555,7 @@ An upstream draft is in my private notes. Upstream main still has both.
 
   ```sh
   cd ~/Repos/Bend2/metalbend
-  systemd-run --user --collect --unit=metalbend-history-cycles --working-directory=$PWD \
+  systemd-run --user --collect --unit=metalbend-old-cycles --working-directory=$PWD \
     --setenv=AGENTS_IDLE_OK=1 --setenv=AGENT_SAMPLE=10 --setenv=AGENT_MAX_PCT=10 --setenv=BEND_NO_TELEMETRY=1 \
     --setenv=MAX_WAIT=12 --setenv=PATH="$PATH" \
     -p StandardOutput=append:$PWD/build/when_idle.log -p StandardError=append:$PWD/build/when_idle.log \
