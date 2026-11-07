@@ -111,6 +111,13 @@ class Files(unittest.TestCase):
         code, out, _ = self.run_on(pair("softmax-ce", 1000, 10, 1000, 10, bits2="DIFF"))
         self.assertIn("bits in 1 workload", (out / "issue-title.txt").read_text())
 
+    def test_an_expected_workload_with_no_rows_is_missing(self):
+        code, out, printed = self.run_on(pair("adamw", 1000, 10, 1000, 10), "--expect", "adamw bpe-encode")
+        by = {r.split("\t")[0]: r.split("\t") for r in (out / "verdict.tsv").read_text().splitlines()[1:]}
+        self.assertEqual(by["bpe-encode"][1], "missing")
+        self.assertIn("no count for either Bend", by["bpe-encode"][-1])
+        self.assertFalse((out / "issue.md").exists())
+
     def test_a_row_of_another_ref_is_refused(self):
         code, out, _ = self.run_on([count("v2.0.38", "adamw", 1, 1)])
         self.assertEqual(code, 2)
