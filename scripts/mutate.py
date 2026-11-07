@@ -57,6 +57,7 @@ def tests(module):
 
 
 ANALYZE, CHART, GUARD = tests("test_analyze"), tests("test_chart"), tests("test_run_guard")
+COUNT, VERDICT = tests("test_count"), tests("test_track_verdict")
 
 # (name, file, before, after, gate, expected): expected is "caught", or the reason the mutant may survive
 MUTANTS = [
@@ -224,6 +225,17 @@ MUTANTS = [
      "[ \"$peak\" -ge \"$t\" ] && [ \"$peak\" -le", "[ \"$peak\" -ge 1 ] && [ \"$peak\" -le", GUARD, "caught"),
     ("run.sh: the guard takes many more threads than asked", "run.sh",
      "[ \"$peak\" -le $((t + 2)) ]", "[ \"$peak\" -le $((t + 20)) ]", GUARD, "caught"),
+    ("count.sh: D1 misses are the reads alone", "scripts/count.sh",
+     'c["D1mr"] + c["D1mw"]', 'c["D1mr"]', COUNT, "caught"),
+    ("count.sh: the bare thread option up to 2.0.36", "scripts/count.sh",
+     "printf '%s\\n' 2.0.38", "printf '%s\\n' 2.0.37", COUNT, "caught"),
+    ("track_verdict.py: instructions beyond 1%", "scripts/track_verdict.py",
+     "IR_LIMIT = 0.001", "IR_LIMIT = 0.01", VERDICT, "caught"),
+    ("track_verdict.py: D1 misses beyond 10%", "scripts/track_verdict.py",
+     "D1_LIMIT = 0.05", "D1_LIMIT = 0.1", VERDICT, "caught"),
+    ("track_verdict.py: an improvement opens an issue", "scripts/track_verdict.py",
+     'ISSUE = ("regression", "mixed", "bits")', 'ISSUE = ("regression", "mixed", "bits", "improvement")', VERDICT,
+     "caught"),
 ]
 
 
