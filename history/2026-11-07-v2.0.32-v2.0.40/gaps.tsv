@@ -1,0 +1,9 @@
+release	workload	bits	why
+v2.0.32	read-bf16	compile-failed	read-bf16.c:14124:12: error: call to undeclared function 'io_res'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+v2.0.33	read-bf16	compile-failed	read-bf16.c:14232:86: error: too few arguments to function call, expected 3, have 2
+v2.0.34	read-bf16	compile-failed	read-bf16.c:14232:86: error: too few arguments to function call, expected 3, have 2
+v2.0.35	read-bf16	compile-failed	read-bf16.c:14298:86: error: too few arguments to function call, expected 3, have 2
+v2.0.32	read-binary	compile-failed	read-binary.c:3510:12: error: call to undeclared function 'io_res'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+v2.0.33	read-binary	compile-failed	read-binary.c:3522:76: error: too few arguments to function call, expected 3, have 2
+v2.0.34	read-binary	compile-failed	read-binary.c:3522:76: error: too few arguments to function call, expected 3, have 2
+v2.0.35	read-binary	compile-failed	read-binary.c:3588:76: error: too few arguments to function call, expected 3, have 2

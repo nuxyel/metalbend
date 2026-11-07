@@ -1,0 +1,11 @@
+key	value
+date	2026-11-07T14:31:08+00:00
+workload	matvec-bands
+releases	v2.0.32 v2.0.33 v2.0.34 v2.0.35 v2.0.36 v2.0.37 v2.0.38 v2.0.39 v2.0.40
+cpu	AMD EPYC 7763 64-Core Processor
+runner	GitHub Actions, ubuntu24 20261101.360.1
+clang	Ubuntu clang version 18.1.3 (1ubuntu1)
+valgrind	valgrind-3.22.0
+bun	1.4.4
+metalbend	b4cb841
+run	https://github.com/nuxyel/metalbend/actions/runs/42381915783

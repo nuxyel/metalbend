@@ -1,0 +1,2 @@
+folder	from	to	workloads	releases	counts	gaps	run
+2026-11-07-v2.0.32-v2.0.40	v2.0.32	v2.0.40	15	9	127	8	https://github.com/nuxyel/metalbend/actions/runs/42381915783

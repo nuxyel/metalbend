@@ -1,0 +1,16 @@
+workload	v2.0.32	v2.0.33	v2.0.34	v2.0.35	v2.0.36	v2.0.37	v2.0.38	v2.0.39	v2.0.40
+adamw	ok	ok	ok	ok	ok	ok	ok	ok	ok
+attention-step	ok	ok	ok	ok	ok	ok	ok	ok	ok
+block-step	ok	ok	ok	ok	ok	ok	ok	ok	ok
+bpe-encode	ok	ok	ok	ok	ok	ok	ok	ok	ok
+gemm-fork	ok	ok	ok	ok	ok	ok	ok	ok	ok
+gemm-tile8	ok	ok	ok	ok	ok	ok	ok	ok	ok
+matvec-bands	ok	ok	ok	ok	ok	ok	ok	ok	ok
+mnist-fork	ok	ok	ok	ok	ok	ok	ok	ok	ok
+mnist-step	ok	ok	ok	ok	ok	ok	ok	ok	ok
+read-bf16	compile-failed: read-bf16.c:14124:12: error: call to undeclared function 'io_res'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]	compile-failed: read-bf16.c:14232:86: error: too few arguments to function call, expected 3, have 2	compile-failed: read-bf16.c:14232:86: error: too few arguments to function call, expected 3, have 2	compile-failed: read-bf16.c:14298:86: error: too few arguments to function call, expected 3, have 2	ok	ok	ok	ok	ok
+read-binary	compile-failed: read-binary.c:3510:12: error: call to undeclared function 'io_res'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]	compile-failed: read-binary.c:3522:76: error: too few arguments to function call, expected 3, have 2	compile-failed: read-binary.c:3522:76: error: too few arguments to function call, expected 3, have 2	compile-failed: read-binary.c:3588:76: error: too few arguments to function call, expected 3, have 2	ok	ok	ok	ok	ok
+read-native	ok	ok	ok	ok	ok	ok	ok	ok	ok
+rmsnorm-step	ok	ok	ok	ok	ok	ok	ok	ok	ok
+softmax-ce	ok	ok	ok	ok	ok	ok	ok	ok	ok
+softmax-ce-array	ok	ok	ok	ok	ok	ok	ok	ok	ok
