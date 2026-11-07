@@ -119,6 +119,24 @@ and they are compared only between two Bends counted on one runner, in one folde
     instructions move beyond 0.1%, its D1 misses beyond 5%, or its output on the new Bend is not its oracle.
   - `report.md`, the same as a table; `issue.md` and `issue-title.txt` when there is a regression, a mixed change or a
     changed output (the daily run opens that issue in this repository).
+- `track/regressions/<new>-<workload>-<metric>/` (`-2` for a second bisect of the same ones), append-only: where
+  `scripts/bisect.sh` found a change, from `.github/workflows/bisect.yml` (by hand, or called by the daily run on each
+  regression or changed output). `<metric>` is `ir` (instructions), `d1` (simulated D1 misses) or `bits` (the output).
+  - `counts.tsv`: every count the bisect took, `count.sh`'s rows (an end's `ref` is its name, a step's its commit).
+  - `steps.tsv`: one line a commit `git bisect` tried: `commit`, `verdict` (`good`, `bad`, `skip`), `ir`,
+    `d1_misses`, `bits`, `why`, `subject`. A commit is bad when its count is nearer the bad end's than the good end's;
+    one whose Bend or workload does not build, or whose output is not its oracle, is skipped (for `bits`, a changed
+    output is bad).
+  - `report.tsv`, `key` and `value`: `workload`, `metric`, `good`, `good_commit`, `bad`, `bad_commit`, `first_bad`,
+    `parent`, `subject`, `decided` (`no` when only skipped commits were left; then `candidates` lists them), `pr`,
+    `pr_title`, `pr_url` (the commit's pull request on bendlang/bend), `step_change` (parent to first bad commit),
+    `range_change` (good to bad end), `functions_moved` (the functions carrying at least 5% of the step's change),
+    `c_changed` (the definitions whose emitted C differs), `commits` (in the range), `clang`, `valgrind`, `run`.
+  - `functions.tsv`: Cachegrind's count per function at the parent and at the first bad commit (instructions, or D1
+    misses for `d1`): `function`, `parent`, `commit`, `delta`, `share` (of the step's change), `moved`.
+  - `c.diff`: the diff of the C each of the two Bends emits for the workload (`bend main.bend -o <file>.c`);
+    `report.md` shows the definitions that changed.
+  - `report.md`, all of it as text; `bisect.log`, `git bisect log`.
 
 ## Adding a workload
 
