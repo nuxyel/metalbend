@@ -5,9 +5,10 @@ branch; no numbers are typed in here).
     python3 -I scripts/history_chart.py <folder> <out.svg>    # elsewhere
 
 One small chart a workload: its instructions under Cachegrind on every release of the folder, relative to the first
-release it builds on (1 = as many as there), one shared scale for all, so the lines compare. A triangle marks a release
-where the count moved beyond 0.1% (down: fewer instructions, up: more), a gray band the releases where the workload
-does not build. Workloads ordered by their change from first to last. Plain SVG, standard library only.
+release it builds on (0% = as many as there), each on its own scale (at least -10% to +5%, so a workload that barely
+moved also looks so; a few workloads drop by 70% and one shared scale would flatten the rest). A triangle marks a
+release where the count moved beyond 0.1% (down: fewer instructions, up: more), a gray band the releases where the
+workload does not build. Workloads ordered by their change from first to last. Plain SVG, standard library only.
 """
 import csv
 import math
@@ -21,7 +22,6 @@ from history_report import version_key  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 LIMIT = 0.001     # the release watch's threshold on instructions
-FLOOR = 0.6       # the scale's lowest bound: a line below it is cut there, its label still its value
 
 W = 820
 COLS = 3
@@ -52,12 +52,15 @@ def read(folder):
     return releases, series, clang
 
 
-def nice(lo, hi):
-    """Round bounds for the shared scale around 1, in steps of 10% (5% when everything moves under 15%)."""
-    step = 0.05 if max(1 - lo, hi - 1) < 0.15 else 0.10
-    lo_b = 1 - step * max(1, math.ceil((1 - lo) / step - 1e-9))
-    hi_b = 1 + step * max(1, math.ceil((hi - 1) / step - 1e-9))
-    return round(lo_b, 4), round(hi_b, 4), step
+def bounds(values):
+    """A workload's own scale around 1: steps of 5%, 10% or 20% as its range needs, and at least -10% to +5%, so a
+    workload that barely moved also looks so."""
+    mn, mx = min(values), max(values)
+    span = max(1 - mn, mx - 1)
+    step = 0.05 if span <= 0.3 else 0.10 if span <= 0.6 else 0.20
+    lo = min(0.9, 1 - step * math.ceil((1 - mn) / step - 1e-9))
+    hi = max(1.05, 1 + step * math.ceil((mx - 1) / step - 1e-9))
+    return round(lo, 4), round(hi, 4)
 
 
 def main():
@@ -77,16 +80,13 @@ def main():
         rel[w] = {r: (s[r] / base if s.get(r) else None) for r in releases}
         total[w] = rel[w][counted[-1]]
     order = sorted(rel, key=lambda w: (total[w], w))
-    lo, hi, step = nice(min(v for w in rel for v in rel[w].values() if v), max(v for w in rel for v in rel[w].values() if v))
-    cut = lo < FLOOR
-    lo = max(lo, FLOOR)
     short = lambda r: r.rsplit(".", 1)[-1]
     cell_w = (W - 2 * PAD - (COLS - 1) * GAP_X) / COLS
     plot_l, plot_r = 34, 46          # room for the scale's labels on the left, the last value on the right
-    parts = [text(PAD, 38, f"Bend {releases[0].lstrip('v')} to {releases[-1].lstrip('v')} on {len(order)} real ML workloads",
+    parts = [text(PAD, 38, f"Bend {releases[0].lstrip('v')} to {releases[-1].lstrip('v')} on {len(order)} real ML workload{"s" if len(order) > 1 else ""}",
                   "title"),
              text(PAD, 60, "Instructions on every release against the first release each workload builds on (0% = as "
-                  "many). Lower is faster.", "sub"),
+                  "many), each on its own scale.", "sub"),
              f'<polygon points="{PAD},{77} {PAD + 9},{77} {PAD + 4.5},{85}" class="down"/>',
              text(PAD + 14, 85, "fewer instructions than the release before (beyond 0.1%)", "key"),
              f'<polygon points="{PAD + 330},{85} {PAD + 339},{85} {PAD + 334.5},{77}" class="up"/>',
@@ -100,7 +100,8 @@ def main():
         x0, x1 = cx + plot_l, cx + cell_w - plot_r
         top, bot = cy + PLOT_TOP, cy + PLOT_TOP + PLOT_H
         sx = lambda k: x0 + (x1 - x0) * k / (len(releases) - 1)
-        sy = lambda v: bot - (bot - top) * (max(v, lo) - lo) / (hi - lo)
+        lo, hi = bounds([v for v in rel[w].values() if v is not None])
+        sy = lambda v: bot - (bot - top) * (v - lo) / (hi - lo)
         parts.append(text(cx, cy + 14, LABELS.get(w, w), "label"))
         parts.append(text(cx, cy + 28, w, "name"))
         half = (x1 - x0) / (len(releases) - 1) / 2
@@ -117,9 +118,10 @@ def main():
             k += 1
         for g in (lo, 1, hi):
             y = sy(g)
+            if g == hi and sy(1) - y < 11:
+                continue  # too close to 0% to label: a scale that big has nothing to show above it
             parts.append(f'<line x1="{x0:.1f}" y1="{y:.1f}" x2="{x1:.1f}" y2="{y:.1f}" class="{"base" if g == 1 else "grid"}"/>')
-            if i % COLS == 0:
-                parts.append(text(x0 - 5, y + 3.5, f"{100 * (g - 1):+.0f}%".replace("+0%", "0%").replace("-", "\u2212"), "tick", "end"))
+            parts.append(text(x0 - 5, y + 3.5, f"{100 * (g - 1):+.0f}%".replace("+0%", "0%").replace("-", "\u2212"), "tick", "end"))
         pts = [(sx(k), sy(rel[w][r])) for k, r in enumerate(releases) if rel[w][r] is not None]
         parts.append('<polyline points="' + " ".join(f"{x:.1f},{y:.1f}" for x, y in pts) + '" class="line"/>')
         prev = None
@@ -129,10 +131,6 @@ def main():
                 prev = None
                 continue
             x, y = sx(k), sy(v)
-            if v < lo:
-                # below the floor: two slanted strokes across the line mark the cut
-                for dy in (-9, -5):
-                    parts.append(f'<line x1="{x - 5:.1f}" y1="{y + dy + 2:.1f}" x2="{x + 5:.1f}" y2="{y + dy - 2:.1f}" class="cut"/>')
             if prev is not None and abs(v / prev - 1) > LIMIT:
                 if v < prev:
                     parts.append(f'<polygon points="{x - 5:.1f},{y - 4:.1f} {x + 5:.1f},{y - 4:.1f} {x:.1f},{y + 5:.1f}" class="down"/>')
@@ -150,9 +148,8 @@ def main():
     y = y0 + rows * CELL_H + 8
     foot = [f"Releases 2.0.{short(releases[0])}-2.0.{short(releases[-1])} along each axis. Cachegrind's instruction count, "
             f"one thread; each workload's releases counted one after",
-            f"another on one GitHub runner (clang {', '.join(clang)}), so a line compares with itself."
-            + (f" A line below {100 * (lo - 1):.0f}% is cut there; its label is its value.".replace("-", "\u2212") if cut else "")]
-    shown = folder.relative_to(ROOT) if folder.is_relative_to(ROOT) else f"history/{folder.name}"
+            f"another on one GitHub runner (clang {', '.join(clang)}), so a line compares with itself. Lower is faster."]
+    shown = f"history/{folder.name}"
     foot.append(f"Source: counts.tsv in {shown} on the data branch (scripts/history_chart.py).")
     for k, line in enumerate(foot):
         parts.append(text(PAD, y + 16 * k, line, "foot"))
@@ -175,7 +172,6 @@ def main():
   .down { fill: #2a78d6; stroke: #fcfcfb; stroke-width: 1.5; }
   .up { fill: #e34948; stroke: #fcfcfb; stroke-width: 1.5; }
   .gapband { fill: #ebeae6; }
-  .cut { stroke: #52514e; stroke-width: 1.5; }
   @media (prefers-color-scheme: dark) {
     .bg { fill: #1a1a19; }
     .title, .label, .value { fill: #f0efec; }
@@ -188,7 +184,6 @@ def main():
     .down { fill: #3987e5; stroke: #1a1a19; }
     .up { fill: #e66767; stroke: #1a1a19; }
     .gapband { fill: #2a2a28; }
-    .cut { stroke: #c3c2b7; }
   }"""
     svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{height:.0f}" viewBox="0 0 {W} {height:.0f}" '
            f'role="img" aria-labelledby="t">',
