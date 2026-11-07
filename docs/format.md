@@ -92,6 +92,34 @@ larger spread between rounds, with floors of 0.1% for instructions and 1% for cy
 A folder's `README.md`, written by hand, says what the run was for and the state of the machine. A run on a busy
 machine is a diagnosis, not a result, and its folder does not go in `results/`. `results/` is append-only.
 
+## The release watch: `track/` on the `data` branch
+
+The release watch (`.github/workflows/track.yml`, from 1.1.0) counts two Bends on GitHub's runners under Cachegrind,
+not `perf`. Its counts are a simulator's on the runner's clang: they never go in `runs.tsv`'s `instructions` column,
+and they are compared only between two Bends counted on one runner, in one folder. They live on the `data` branch, so
+`main` stays small:
+
+- `track/last-tag`: the last release the daily run compared; the next one looks for the release after it.
+- `track/index.tsv`: one line per comparison: `folder`, `old`, `new`, `old_commit`, `new_commit`, `trigger` (`daily`,
+  or `by-hand` for refs given to a manual run), `findings` (workloads that moved or changed their output),
+  `for_issue` (those that make an issue: a regression, a mixed change or a changed output), `run` (its URL).
+- `track/runs/<date>-<old>-<new>/` (`-2`, `-3` for a second comparison of the same refs that day), append-only:
+  - `counts.tsv`, `scripts/count.sh`'s rows, one per workload and Bend: `ref` (as given), `commit` (bendlang/bend's;
+    `sha256:<16 hex>` for a released binary counted by hand), `version` (what it reports), `workload`, `ir`
+    (Cachegrind's instructions, one thread), `d1_misses` (simulated L1 data misses, reads and writes), `ll_misses`
+    (simulated last-level misses, instructions and data), `hash`, `bits` (`ok`, `DIFF`, `compile-failed`,
+    `run-failed`; the counts are `-` for the last two), `clang`, `valgrind`. The caches are given to Cachegrind
+    explicitly (L1i 64 KiB 16-way, L1d 48 KiB 12-way, LL 24 MiB 12-way, 64-byte lines), so every runner simulates the
+    same ones.
+  - `env.tsv`, `key` and `value`: `old`, `old_commit`, `new`, `new_commit`, `runner` (the image), `clang`, `valgrind`,
+    `bun`, `metalbend` (the commit that counted), `date`, `cpus` (the runners' CPU models), `jobs`, `run`.
+  - `verdict.tsv`, `scripts/track_verdict.py`'s: `workload`, `verdict` (`regression`, `improvement`, `mixed`, `same`,
+    `bits`, `no-baseline`, `missing`), `ir_old`, `ir_new`, `ir_change` (relative, `0.093300` for +9.33%), `d1_old`,
+    `d1_new`, `d1_change`, `ll_old`, `ll_new`, `bits_old`, `bits_new`, `why`. A workload is a finding when its
+    instructions move beyond 0.1%, its D1 misses beyond 5%, or its output on the new Bend is not its oracle.
+  - `report.md`, the same as a table; `issue.md` and `issue-title.txt` when there is a regression, a mixed change or a
+    changed output (the daily run opens that issue in this repository).
+
 ## Adding a workload
 
 1. `workloads/<name>/main.bend`, as above; `native.c` and `gpu.bend` if it has them.
