@@ -599,3 +599,9 @@ An upstream draft is in my private notes. Upstream main still has both.
   per-function table pairs some of them by name only).
 - `make test`: 14 more tests (`tests/test_bisect.py`; 157 with the history's); `make mutate` 79 mutants (four new
   ones on `bisect_report.py`, all caught). For 1.1.0, with the release watch.
+
+## Release v1.1.0: the release watch, bisect and the history from 2.0.32 (2026-11-07)
+
+- PR #3, CI green, merged as 6324d5a, tag `v1.1.0`, GitHub release. `track.yml` is on main, so its daily run now
+  checks bendlang/bend's tags; the `data` branch's `track/last-tag` is v2.0.40, so the first run that counts is
+  2.0.41's. The throwaway "phase 0 probe" workflow is disabled.
