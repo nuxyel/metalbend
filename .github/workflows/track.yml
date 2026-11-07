@@ -1,0 +1,230 @@
+name: Release watch
+
+# Bend's releases on the corpus, counted under Cachegrind on GitHub's runners. Once a day it looks for a release of
+# bendlang/bend after the last one it compared (track/last-tag on the data branch); on one, every workload is built
+# with that release and the release before it, from source, and both are counted in one job on one runner
+# (scripts/track.sh), a job a workload. Instructions beyond 0.1%, simulated D1 misses beyond 5% or an output that is
+# not its oracle are findings (scripts/track_verdict.py). The counts go to track/ on the data branch; a regression or
+# a changed output opens an issue in this repository. Nothing is posted on bendlang/bend. By hand, any two refs, with
+# the counts recorded and no issue unless asked; an empty `new` takes the daily path, from `last` if given.
+on:
+  schedule:
+    - cron: "23 7 * * *"   # daily, on main
+  workflow_dispatch:
+    inputs:
+      old:
+        description: "bendlang/bend ref to compare against (empty: the release before new)"
+        default: ""
+      new:
+        description: "bendlang/bend ref to count (empty: the first release after the last one tracked, as the daily run)"
+        default: ""
+      last:
+        description: "with new empty: take this release as the last one tracked, instead of the data branch's"
+        default: ""
+      workloads:
+        description: "workloads separated by spaces (empty: every workload)"
+        default: ""
+      record:
+        description: "add the counts to track/ on the data branch"
+        type: boolean
+        default: true
+      open_issue:
+        description: "open an issue here on a regression or a changed output"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-watch
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: what to count
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      old: ${{ steps.plan.outputs.old }}
+      new: ${{ steps.plan.outputs.new }}
+      daily: ${{ steps.plan.outputs.daily }}
+      workloads: ${{ steps.plan.outputs.workloads }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: The two refs
+        id: plan
+        shell: bash
+        env:
+          OLD: ${{ inputs.old }}
+          NEW: ${{ inputs.new }}
+          LAST: ${{ inputs.last }}
+          WORKLOADS: ${{ inputs.workloads }}
+        run: |
+          set -euo pipefail
+          if [ -n "$NEW" ]; then
+            old=${OLD:-$(scripts/track.sh --previous "$NEW")}
+            [ -n "$old" ] || { echo "::error::no release before $NEW: give old"; exit 1; }
+            new=$NEW; daily=false
+          else
+            if [ -z "$LAST" ]; then
+              git fetch -q --depth 1 origin data
+              LAST=$(git show FETCH_HEAD:track/last-tag)
+            fi
+            read -r old new <<< "$(scripts/track.sh --next "$LAST")" || true
+            daily=true
+          fi
+          ws=$(printf '%s\n' ${WORKLOADS:-$(ls workloads)} | jq -R . | jq -sc .)
+          { echo "old=${old:-}"; echo "new=${new:-}"; echo "daily=$daily"; echo "workloads=$ws"; } >> "$GITHUB_OUTPUT"
+          if [ -z "${new:-}" ]; then echo "No release of bendlang/bend after $LAST." >> "$GITHUB_STEP_SUMMARY"
+          else echo "Counting Bend $new against $old: $ws" >> "$GITHUB_STEP_SUMMARY"; fi
+
+  count:
+    name: ${{ matrix.workload }}
+    needs: plan
+    if: needs.plan.outputs.new != ''
+    runs-on: ubuntu-24.04     # pinned: both Bends are counted on one image, and its clang is in the counts
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        workload: ${{ fromJSON(needs.plan.outputs.workloads) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: clang and valgrind
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q valgrind
+          command -v clang || sudo apt-get install -y -q clang
+          clang --version | head -1; valgrind --version
+
+      - name: Data
+        run: make data
+
+      - name: Count with both Bends
+        env:
+          OLD: ${{ needs.plan.outputs.old }}
+          NEW: ${{ needs.plan.outputs.new }}
+          W: ${{ matrix.workload }}
+        run: OUT=out scripts/track.sh "$OLD" "$NEW" "$W"
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: counts-${{ matrix.workload }}
+          path: |
+            out/counts.tsv
+            out/env.tsv
+            build/count/*/${{ matrix.workload }}.cachegrind
+          if-no-files-found: warn
+
+  gather:
+    name: verdict
+    needs: [plan, count]
+    if: always() && needs.plan.outputs.new != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write   # the data branch
+      issues: write     # an issue here on a finding
+    env:
+      OLD: ${{ needs.plan.outputs.old }}
+      NEW: ${{ needs.plan.outputs.new }}
+      DAILY: ${{ needs.plan.outputs.daily }}
+      WORKLOADS: ${{ join(fromJSON(needs.plan.outputs.workloads), ' ') }}
+      RECORD: ${{ github.event_name == 'schedule' || inputs.record }}
+      OPEN_ISSUE: ${{ github.event_name == 'schedule' || inputs.open_issue }}
+      RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/checkout@v7
+        with:
+          ref: data
+          path: store
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: counts-*
+          path: parts
+
+      - name: Verdict
+        id: verdict
+        shell: bash
+        run: |
+          set -euo pipefail
+          safe() { echo "$1" | tr -c 'A-Za-z0-9._\n-' _; }
+          folder=$(date -u +%F)-$(safe "$OLD")-$(safe "$NEW")
+          n=1; base=$folder
+          while [ -e "store/track/runs/$folder" ]; do n=$((n + 1)); folder=$base-$n; done
+          echo "folder=$folder" >> "$GITHUB_OUTPUT"
+          mkdir -p out
+          { scripts/count.sh --header; for f in parts/*/out/counts.tsv; do tail -n +2 "$f"; done; } > out/counts.tsv
+          first=$(ls parts/*/out/env.tsv | head -1)
+          { grep -v -E '^(date|cpu|run)\b' "$first"
+            echo -e "date\t$(date -Is)"
+            echo -e "cpus\t$(cut -f2 <(grep -h '^cpu\b' parts/*/out/env.tsv) | sort -u | paste -sd ';')"
+            echo -e "jobs\t$(ls parts/*/out/env.tsv | wc -l)"
+            echo -e "run\t$RUN"; } > out/env.tsv
+          store_note=()
+          [ "$RECORD" = true ] && store_note=(--store "track/runs/$folder/")
+          python3 -I scripts/track_verdict.py out/counts.tsv "$OLD" "$NEW" out --run "$RUN" "${store_note[@]}" \
+            --expect "$WORKLOADS" | tee out/verdict.txt
+          {
+            cat out/report.md
+            if [ -f out/issue.md ]; then
+              echo; echo "## The issue for this run"; echo
+              if [ "$OPEN_ISSUE" = true ]; then echo "Opened below (open_issue)."; else echo "Not opened (open_issue is off)."; fi
+              echo; echo "**$(cat out/issue-title.txt)**"; echo; cat out/issue.md
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record on the data branch
+        if: env.RECORD == 'true'
+        shell: bash
+        env:
+          FOLDER: ${{ steps.verdict.outputs.folder }}
+        run: |
+          set -euo pipefail
+          mkdir -p "store/track/runs/$FOLDER"
+          cp out/counts.tsv out/env.tsv out/verdict.tsv out/report.md "store/track/runs/$FOLDER/"
+          [ ! -f out/issue.md ] || cp out/issue.md out/issue-title.txt "store/track/runs/$FOLDER/"
+          idx=store/track/index.tsv
+          [ -f "$idx" ] || echo -e "folder\told\tnew\told_commit\tnew_commit\ttrigger\tfindings\tfor_issue\trun" > "$idx"
+          oc=$(awk -F'\t' '$1 == "old_commit" {print $2}' out/env.tsv)
+          nc=$(awk -F'\t' '$1 == "new_commit" {print $2}' out/env.tsv)
+          found=$(awk -F'\t' 'NR > 1 && $2 != "same" && $2 != "no-baseline"' out/verdict.tsv | wc -l)
+          flagged=$(awk -F'\t' 'NR > 1 && ($2 == "regression" || $2 == "mixed" || $2 == "bits")' out/verdict.tsv | wc -l)
+          trigger=$([ "$DAILY" = true ] && echo daily || echo by-hand)
+          echo -e "$FOLDER\t$OLD\t$NEW\t$oc\t$nc\t$trigger\t$found\t$flagged\t$RUN" >> "$idx"
+          # only the daily path moves the last release tracked, and only forward
+          if [ "$DAILY" = true ]; then echo "$NEW" > store/track/last-tag; fi
+          cd store
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add track
+          git commit -q -m "track: Bend $NEW against $OLD ($trigger, $found moved, $flagged for an issue)"
+          git push -q origin HEAD:data
+
+      - name: Open the issue
+        if: env.OPEN_ISSUE == 'true' && hashFiles('out/issue.md') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue create -R "$GITHUB_REPOSITORY" --title "$(cat out/issue-title.txt)" --body-file out/issue.md
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: track-verdict
+          path: out/
