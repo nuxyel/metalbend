@@ -561,5 +561,5 @@ An upstream draft is in my private notes. Upstream main still has both.
     -p StandardOutput=append:$PWD/build/when_idle.log -p StandardError=append:$PWD/build/when_idle.log \
     $PWD/scripts/when_idle.sh $PWD/scripts/history_cycles.sh
   ```
-- `make test` 143, from 133 (history.sh on fake Bends, history_report.py, history_chart.py). For 1.1.0, with the next
+- `make test`: 10 more tests (history.sh on fake Bends, history_report.py, history_chart.py). For 1.1.0, with the next
   release.
