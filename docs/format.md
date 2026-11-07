@@ -131,7 +131,8 @@ and they are compared only between two Bends counted on one runner, in one folde
     `parent`, `subject`, `decided` (`no` when only skipped commits were left; then `candidates` lists them), `pr`,
     `pr_title`, `pr_url` (the commit's pull request on bendlang/bend), `step_change` (parent to first bad commit),
     `range_change` (good to bad end), `functions_moved` (the functions carrying at least 5% of the step's change),
-    `c_changed` (the definitions whose emitted C differs), `commits` (in the range), `clang`, `valgrind`, `run`.
+    `c_changed` (the definitions whose emitted C differs; `(top-level)` for the lines outside any), `commits` (in the
+    range), `clang`, `valgrind`, `run`.
   - `functions.tsv`: Cachegrind's count per function at the parent and at the first bad commit (instructions, or D1
     misses for `d1`): `function`, `parent`, `commit`, `delta`, `share` (of the step's change), `moved`.
   - `c.diff`: the diff of the C each of the two Bends emits for the workload (`bend main.bend -o <file>.c`);
