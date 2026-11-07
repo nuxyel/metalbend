@@ -37,6 +37,7 @@ COLUMN = {"ir": "ir", "d1": "d1_misses"}
 MOVED_SHARE = 0.05   # a function "moved" when it carries at least 5% of the change between parent and commit
 SHOWN_FUNCTIONS = 12
 DIFF_LINES = 160     # the report shows this many lines of the C diff; c.diff has all of it
+TOP = "(top-level)"  # the C outside any definition (declarations, macros), as one name
 
 
 def read_counts(path):
@@ -157,7 +158,7 @@ def c_texts(lines):
     for name, a, b in c_spans(lines):
         texts.setdefault(name, []).extend(lines[a:b])
         inside.update(range(a, b))
-    texts["(outside any function)"] = [line for i, line in enumerate(lines) if i not in inside]
+    texts[TOP] = [line for i, line in enumerate(lines) if i not in inside]
     return texts
 
 
@@ -372,8 +373,8 @@ def issue_section(reports):
             one += f", {kv['step_change']} at that commit, {kv['range_change']} over the range"
         if kv.get("functions_moved"):
             one += "; moved most: " + ", ".join(f"`{n}`" for n in kv["functions_moved"].split()[:5])
-        if kv.get("c_changed"):
-            names = kv["c_changed"].split()
+        names = [n for n in kv.get("c_changed", "").split() if n != TOP]
+        if names:
             one += "; its C changed in " + ", ".join(f"`{n}`" for n in names[:8]) + \
                 (f" and {len(names) - 8} more" if len(names) > 8 else "")
         lines.append(one + ".")
