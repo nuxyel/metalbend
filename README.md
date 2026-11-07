@@ -146,21 +146,43 @@ The scripts were written on one machine (a Core Ultra 7 155H on Linux) and say w
   `powerprofilesctl`; both say `unknown` where they are missing, and the preflight checks every `Mains` supply.
   `GPU=1` needs CUDA (`CUDA_HOME`) and an NVIDIA GPU.
 
+## The release watch
+
+Between my runs on an idle machine, GitHub's runners watch Bend's releases. Once a day,
+`.github/workflows/track.yml` looks for a release of bendlang/bend after the last one it compared. On one, it builds
+that release and the one before it from source and counts every workload with both under Cachegrind
+(`scripts/track.sh`; one job a workload, both Bends in the same job). Cachegrind's counts repeat exactly from run to
+run, so a small move is a real one. A workload is a finding when its instructions move beyond 0.1%, its simulated L1
+data misses beyond 5%, or its output is not its oracle; a regression or a changed output opens an issue here. The
+counts are kept on the `data` branch (`track/`, `docs/format.md`).
+
+```sh
+scripts/count.sh v2.0.40 bpe-encode       # one workload, one Bend: instructions, simulated misses, the hash
+scripts/track.sh v2.0.39 v2.0.40 adamw    # two Bends on some workloads (every workload with none), then the verdict
+```
+
+Replayed on 2.0.39 against 2.0.40, it flags `bpe-encode` alone as a regression (instructions +9.42%, D1 misses 2.03x)
+and 12 workloads as improvements, every output its oracle. Its limits: the caches are simulated (no prefetcher, so
+misses move on another scale than the hardware's; the same `bpe-encode` change is 5.6x in perf's L1 misses), it runs
+one thread and no GPU, and it counts the binaries the runner's clang builds, so its numbers compare two Bends on one
+runner and never stand next to the perf counts of `results/`. Cycles, 16 threads and the GPU stay with `release.sh`
+on an idle machine.
+
 ## Checks
 
 ```sh
 make setup     # Bend 2.0.40 (checked by SHA256), then clang and Python 3 checked
 make check     # every workload on 1 and 16 threads and every C target, against oracles.tsv
 make check-gpu # every GPU target on the GPU and with --gpu off on 1 and 16 threads; skips if there is no GPU
-make test      # analyze.py, scripts/chart.py, oracle_diff.py, run.sh's guard and PMU choice, the GPU lane's skip, release.sh on a fake upstream
+make test      # analyze.py, scripts/chart.py, oracle_diff.py, run.sh's guard and PMU choice, the GPU lane's skip, release.sh on a fake upstream, count.sh and track_verdict.py on fakes
 make laws      # the ten laws (with --verdict) and their 22 mutants, each refused
 make mutate    # break the corpus and the tools on purpose; every mutant must be caught
 ```
 
 `oracles.tsv` holds each workload's hash, as `run.sh` records it, from a run where every version and every C target
 printed it. CI runs all but `make check-gpu` on every push, bits only (GitHub's runners cannot count with `perf`, and
-have no GPU). `make check-gpu` is local: with no toolkit or no GPU it says why and passes. `make mutate` has 70
-mutants: 64 caught, and 6 that survive with their reason written next to them (five compute the same bits, one changes
+have no GPU). `make check-gpu` is local: with no toolkit or no GPU it says why and passes. `make mutate` has 75
+mutants: 69 caught, and 6 that survive with their reason written next to them (five compute the same bits, one changes
 what no run reaches). The three block workloads print a hash of their final weights and AdamW moments after the
 losses, so one rounding changed inside a layer (SiLU's, say) is caught even when every loss keeps its bits.
 
