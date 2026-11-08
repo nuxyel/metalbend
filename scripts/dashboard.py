@@ -13,9 +13,10 @@ It reads:
 - `workloads/<name>/`: its README, whether it has a C and a GPU target; `oracles.tsv`.
 
 It writes `index.html` (Bend / C, the corpus at a glance, the history, the release watch, the bisects, how it
-measures and its limits), `w/<workload>.html` (one workload over the releases, then its README) and `style.css`
-(scripts/dashboard.css). Charts are inline SVG and HTML in the colors of scripts/history_chart.py, with a tooltip on
-every mark; light and dark follow the reader's setting. Standard library only.
+measures and its limits), `w/<workload>.html` (one workload over the releases, then its README), `style.css`
+(scripts/dashboard.css) and `site.js` (scripts/dashboard.js). Charts are inline SVG and HTML in the colors of
+scripts/history_chart.py; every mark carries its numbers in `data-tip` and `aria-label`, and site.js shows them on
+hover, on keyboard focus and on a tap. Light and dark follow the reader's setting. Standard library only.
 """
 import csv
 import html
@@ -270,6 +271,13 @@ def short(ref):
     return ref.lstrip("v")
 
 
+def tipped(text):
+    """A chart mark's numbers, reachable without a mouse: focusable, named for screen readers, and shown by site.js on
+    hover, focus or a tap."""
+    t = esc(text)
+    return f'tabindex="0" role="img" aria-label="{t}" data-tip="{t}"'
+
+
 def sha(c):
     return f'<a href="https://github.com/bendlang/bend/commit/{esc(c)}"><code>{esc(c[:8])}</code></a>'
 
@@ -300,7 +308,7 @@ def spark(series, releases, unit, limit, what):
     lo, hi = bounds([v for v in rel.values() if v is not None])
     sy = lambda v: bot - (bot - top) * (v - lo) / (hi - lo)
     half = (x1 - x0) / max(1, len(releases) - 1) / 2
-    p = [f'<svg viewBox="0 0 {W} {H}" role="img" aria-label="{esc(what)}">']
+    p = [f'<svg viewBox="0 0 {W} {H}" role="group" aria-label="{esc(what)}">']
     k = 0
     while k < len(releases):
         if rel[releases[k]] is None:
@@ -308,8 +316,8 @@ def spark(series, releases, unit, limit, what):
             while j + 1 < len(releases) and rel[releases[j + 1]] is None:
                 j += 1
             a, b = max(x0, sx(k) - half), min(x1, sx(j) + half)
-            p.append(f'<rect x="{a:.1f}" y="{top}" width="{b - a:.1f}" height="{bot - top}" class="s-gap">'
-                     f'<title>not counted on {esc(", ".join(short(r) for r in releases[k:j + 1]))}</title></rect>')
+            p.append(f'<rect x="{a:.1f}" y="{top}" width="{b - a:.1f}" height="{bot - top}" class="s-gap" '
+                     f'{tipped("not counted on " + ", ".join(short(r) for r in releases[k:j + 1]))}/>')
             k = j
         k += 1
     for g in (lo, 1, hi):
@@ -339,8 +347,7 @@ def spark(series, releases, unit, limit, what):
                 mark = f'<polygon points="{x - 5:.1f},{y + 4:.1f} {x + 5:.1f},{y + 4:.1f} {x:.1f},{y - 5:.1f}" class="s-up"/>'
         else:
             mark = f'<circle cx="{x:.1f}" cy="{y:.1f}" r="2.2" class="s-dot"/>'
-        p.append(f'<g class="s-pt"><title>{esc(tip)}</title><circle cx="{x:.1f}" cy="{y:.1f}" r="9" class="s-hit"/>'
-                 f"{mark}</g>")
+        p.append(f'<g class="s-pt" {tipped(tip)}><circle cx="{x:.1f}" cy="{y:.1f}" r="9" class="s-hit"/>{mark}</g>')
         prev = v
     step = 1 if len(releases) <= 10 else 2
     for k, r in enumerate(releases):
@@ -378,8 +385,8 @@ def bend_c_chart(cells, versions, rows):
         xs = [pos(c["c_cyc"]) for _, c in have]
         dots = "".join(
             f'<i class="dot {style.get(v, "old")}" style="left:{pos(c["c_cyc"]):.2f}%" '
-            f'title="{esc(w)} on Bend {esc(v)}: {ratio(c["c_cyc"])} C\'s cycles ({ratio(c["c_ins"])} its instructions), '
-            f'results/{esc(c["run"])}"></i>' for v, c in have)
+            + tipped(f'{w} on Bend {v}: {ratio(c["c_cyc"])} C\'s cycles ({ratio(c["c_ins"])} its instructions), '
+                     f'results/{c["run"]}') + "></i>" for v, c in have)
         span = f'<i class="span" style="left:{min(xs):.2f}%;width:{max(xs) - min(xs):.2f}%"></i>' if len(xs) > 1 else ""
         now = have[-1][1]["c_cyc"] if have else None
         out.append(f'<div class="row"><a class="lbl" href="w/{esc(w)}.html">{esc(LABELS.get(w, w))}'
@@ -402,6 +409,7 @@ def page(title, body, depth=0, description=""):
 <title>{esc(title)}</title>
 <meta name="description" content="{esc(description)}">
 <link rel="stylesheet" href="{up}style.css">
+<script src="{up}site.js" defer></script>
 </head>
 <body>
 <main>
@@ -471,6 +479,7 @@ def build(data, out, results=ROOT / "results"):
     out.mkdir(parents=True, exist_ok=True)
     (out / "w").mkdir(exist_ok=True)
     shutil.copy(ROOT / "scripts" / "dashboard.css", out / "style.css")
+    shutil.copy(ROOT / "scripts" / "dashboard.js", out / "site.js")
     (out / ".nojekyll").write_text("")
 
     # the run that measured the newest version: its machine, threads and GPU are the ones the page describes
@@ -506,7 +515,7 @@ def build(data, out, results=ROOT / "results"):
                  "; ".join(f'<a href="{REPO}/tree/main/results/{esc(r["name"])}">{esc(r["name"])}</a>'
                            f' ({" and ".join(sorted({v for _, v in r["cells"]}, key=vkey))}, {esc(state(r))})'
                            for r in runs) +
-                 ". Hover a dot for its numbers.</p>")
+                 ". Hover over a dot, tap it or reach it with Tab for its numbers.</p>")
         b.append(bend_c_chart(cells, versions, natives))
         far = [w for w in natives if cells.get((w, now), {}).get("c_cyc", 0) >= 10]
         if far:
@@ -557,10 +566,10 @@ def build(data, out, results=ROOT / "results"):
         for w in order:
             s = {r: h["ir"].get((w, r)) for r in rel}
             t = total_change(s, rel)
-            cards.append(f'<a class="card" href="w/{esc(w)}.html"><div class="head"><span class="t">{esc(ws[w]["label"])}'
+            cards.append(f'<div class="card"><a class="head" href="w/{esc(w)}.html"><span class="t">{esc(ws[w]["label"])}'
                          f'<br><span class="name">{esc(w)}</span></span><span class="v">'
-                         f'{changed(t, IR_LIMIT) if t else ""}</span></div>'
-                         f'{spark(s, rel, "instructions", IR_LIMIT, f"{w}: instructions on Bend {rel[0]} to {rel[-1]}")}</a>')
+                         f'{changed(t, IR_LIMIT) if t else ""}</span></a>'
+                         f'{spark(s, rel, "instructions", IR_LIMIT, f"{w}: instructions on Bend {rel[0]} to {rel[-1]}")}</div>')
         b.append('<div class="cards">' + "".join(cards) + "</div>")
 
     b.append("<h2>The release watch</h2>")
