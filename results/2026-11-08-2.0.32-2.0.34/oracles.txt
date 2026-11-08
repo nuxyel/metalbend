@@ -1,0 +1,9 @@
+MISSING   read-bf16, Bend 2.0.32: no run (did it build?)
+MISSING   read-bf16, Bend 2.0.33: no run (did it build?)
+MISSING   read-bf16, Bend 2.0.34: no run (did it build?)
+MISSING   read-bf16, Bend 2.0.35: no run (did it build?)
+MISSING   read-binary, Bend 2.0.32: no run (did it build?)
+MISSING   read-binary, Bend 2.0.33: no run (did it build?)
+MISSING   read-binary, Bend 2.0.34: no run (did it build?)
+MISSING   read-binary, Bend 2.0.35: no run (did it build?)
+oracles: 8 problem(s) in 119 cases against oracles.tsv
