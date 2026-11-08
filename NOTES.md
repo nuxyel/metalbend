@@ -711,3 +711,5 @@ An upstream draft is in my private notes. Upstream main still has both.
   cycles, a rehearsal or a diagnosis counted as a release run, a count that fell drawn as one that grew, the marks
   not focusable. 83 mutants, 77 caught, 6 expected to survive (I ran the four through the driver's own loop, not the
   whole `make mutate`).
+- Rebased onto devel after `results/2026-11-08-2.0.32-2.0.34/` landed: the page lists it among the release runs
+  (2.0.32 to 2.0.35, idle by the preflight), so the 2.0.32-2.0.35 cycles left above are in. `make test` passes.
