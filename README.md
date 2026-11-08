@@ -256,6 +256,7 @@ python3 -I scripts/history_chart.py <folder>     # docs/history.svg
 measured, the corpus at a glance, the history, the release watch's comparisons, what the bisect found, and a page for
 each workload with its counts on every release. No number in it is typed in: it reads `results/` on `main` and
 `track/` and `history/` on the `data` branch, and `docs/upstream.tsv` for the issue I filed on a bisect's finding.
+Every mark on its charts gives its numbers on hover, on a tap and from the keyboard (Tab).
 `.github/workflows/pages.yml` draws it again after every run of the release watch, the history and the bisect, and
 deploys it to GitHub Pages once the repository's Pages source is GitHub Actions; until then each run keeps the site as
 an artifact.
@@ -277,8 +278,8 @@ make mutate    # break the corpus and the tools on purpose; every mutant must be
 
 `oracles.tsv` holds each workload's hash, as `run.sh` records it, from a run where every version and every C target
 printed it. CI runs all but `make check-gpu` on every push, bits only (GitHub's runners cannot count with `perf`, and
-have no GPU). `make check-gpu` is local: with no toolkit or no GPU it says why and passes. `make mutate` has 89
-mutants: 82 caught, and 7 that survive with their reason written next to them (six compute the same bits, one changes
+have no GPU). `make check-gpu` is local: with no toolkit or no GPU it says why and passes. `make mutate` has 93
+mutants: 86 caught, and 7 that survive with their reason written next to them (six compute the same bits, one changes
 what no run reaches). The three block workloads print a hash of their final weights and AdamW moments after the
 losses, so one rounding changed inside a layer (SiLU's, say) is caught even when every loss keeps its bits.
 
