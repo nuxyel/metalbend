@@ -672,7 +672,8 @@ An upstream draft is in my private notes. Upstream main still has both.
 ## 2026-11-07: the dashboard (`scripts/dashboard.py`, `.github/workflows/pages.yml`)
 
 - `scripts/dashboard.py <data> <out>` draws a static site from `results/` (the release runs, `<date>-<version>`
-  folders; a version two runs measured comes from the newer one) and the `data` branch (the newest `history/` folder,
+  folders, and the history's cycles, `<date>-<from>-<to>`; not a rehearsal or a diagnosis; a version two runs measured
+  comes from the newer one) and the `data` branch (the newest `history/` folder,
   `track/`, `track/regressions/`), plus `docs/upstream.tsv` for the issue I filed on a bisect's finding (#2081 and
   #2082 for `bpe-encode` on 2.0.40). `index.html`: Bend / C in cycles on every release measured (2.0.38 for three
   workloads from `results/2026-10-25-2.0.39`, 2.0.39 and 2.0.40 from `results/2026-11-06-2.0.40`), the corpus at a
@@ -690,6 +691,7 @@ An upstream draft is in my private notes. Upstream main still has both.
   push to main that changes what it reads, and by hand. It deploys only when the repository's Pages source is GitHub
   Actions; until then each run keeps the site as an artifact. `workflow_run` only fires from the default branch, so
   none of it runs before a release.
-- `make dashboard` builds it here from `origin/data`. `make test`: 163 tests (6 new).
+- `make dashboard` builds it here from `origin/data`. `make test`: 164 tests (7 new).
 - Left: a mutant for `dashboard.py` in `scripts/mutate.py` (its test already catches a Bend / C that is not
-  report.py's); cycles on releases before 2.0.38, which wait on the idle run of `scripts/history_cycles.sh`.
+  report.py's); cycles on 2.0.32-2.0.35, which wait on the idle run of `scripts/history_cycles.sh` and will show
+  here as they land in `results/`.
