@@ -112,6 +112,26 @@ class Site(unittest.TestCase):
         self.assertIn("<h3>The C target</h3>", bpe)
         self.assertIn("611x", bpe)
 
+    def test_every_mark_without_a_mouse(self):
+        # every chart mark is focusable and carries its numbers for site.js and for screen readers; no mark keeps a
+        # hover-only <title>, and a card's link is its header, so a tap on a point shows its numbers
+        pages = [self.index] + [p.read_text() for p in (self.site / "w").glob("*.html")]
+        marks = [m for t in pages for m in re.findall(r'<(?:g class="s-pt"|rect [^>]*class="s-gap"|i class="dot [a-z]+" style)[^>]*>', t)]
+        self.assertGreater(len(marks), 20)
+        for m in marks:
+            tip = re.search(r'data-tip="([^"]+)"', m)
+            self.assertIn('tabindex="0"', m, m)
+            self.assertTrue(tip, m)
+            self.assertIn(f'aria-label="{tip.group(1)}"', m, m)
+        self.assertIn('data-tip="adamw on Bend 2.0.40: 1.13x C&#x27;s cycles', self.index)
+        self.assertIn('data-tip="2.0.40: 900 instructions, −10.00% against 2.0.38', self.index)
+        self.assertIn('data-tip="not counted on 2.0.38"', self.index)
+        for t in pages:
+            self.assertNotIn("<title>", t.split("</head>", 1)[1])
+            self.assertIn('site.js" defer></script>', t)
+        self.assertNotIn('<a class="card"', self.index)
+        self.assertTrue((self.site / "site.js").exists())
+
     def test_nothing_from_the_machine(self):
         for p in self.site.rglob("*.html"):
             self.assertNotIn("/home/", p.read_text(), p)
