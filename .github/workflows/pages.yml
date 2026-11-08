@@ -19,6 +19,7 @@ on:
       - "analyze.py"
       - "scripts/dashboard.py"
       - "scripts/dashboard.css"
+      - "scripts/dashboard.js"
       - "scripts/chart.py"
       - "scripts/history_chart.py"
       - "scripts/history_report.py"
