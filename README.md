@@ -220,7 +220,13 @@ do not move. The counts are the runner's (clang 18), not this machine's, so they
 (2.0.39's `softmax-ce` is 59% fewer instructions here, 65% with perf on my machine). The run that counted them,
 `history/2026-11-07-v2.0.32-v2.0.40/` on the `data` branch, also counted 2.0.39 and 2.0.40 as the release watch's
 replay had on another runner: 28 of the 30 counts are the same to the instruction, and `read-bf16`'s two differ by
-403 instructions each (0.0003%). Cycles on 2.0.32-2.0.34 wait for an idle machine (`scripts/history_cycles.sh`).
+403 instructions each (0.0003%). Cycles on my machine, measured on an idle machine on 2026-11-08 with 2.0.35 in the
+same rounds (`scripts/history_cycles.sh`, `results/2026-11-08-2.0.32-2.0.34/`), say the same as the counts: on 2.0.32
+the four parallel-block workloads take 2.6-3.3x 2.0.35's cycles on one thread (+163% to +227%), and 2.0.33 and 2.0.34
+are within 3% of it, with the same outputs on all four releases; `rmsnorm-step` is the exception, 13-14% more cycles on
+2.0.32-2.0.34 for 0.5% fewer instructions. On 16 threads 2.0.35 is also faster than 2.0.33 and 2.0.34 on
+`attention-step` and `block-step` (0.24 against 0.33 s, 0.34 against 0.44-0.45 s), which one-thread counts cannot show.
+`read-bf16` and `read-binary` do not build before 2.0.36.
 
 ```sh
 scripts/history.sh adamw $(scripts/history.sh --releases v2.0.32 v2.0.40)   # one workload on every release
