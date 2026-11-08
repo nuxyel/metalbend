@@ -695,3 +695,19 @@ An upstream draft is in my private notes. Upstream main still has both.
 - Left: a mutant for `dashboard.py` in `scripts/mutate.py` (its test already catches a Bend / C that is not
   report.py's); cycles on 2.0.32-2.0.35, which wait on the idle run of `scripts/history_cycles.sh` and will show
   here as they land in `results/`.
+
+## 2026-11-08: the dashboard without a mouse, and its mutants
+
+- Every chart mark (a Bend / C dot, a history point, a band where a workload does not build) carries its numbers in
+  `data-tip` and the same text in `aria-label`, and is focusable. `scripts/dashboard.js`, copied into the site as
+  `site.js`, shows them on hover, on keyboard focus and on a tap; a tap elsewhere, Escape or a resize hides them. The
+  native `<title>` tooltips are gone, since a phone never shows them. A history card's link is now its header, so a
+  tap on a point shows its numbers instead of opening the workload's page. The dots have a finger-sized target.
+- Checked in a headless browser at 390 px with touch: a tap on a dot and on a point opens its tooltip and the page
+  stays, a tap elsewhere closes it; Tab to a dot opens it, Escape closes it.
+- `tests/test_dashboard.py`: one more test (every mark focusable, with the same numbers in `data-tip` and
+  `aria-label`, no `<title>` left in the body, `site.js` on every page). `make test`: 165 tests.
+- `make mutate`: four mutants of `dashboard.py`, all caught by its test: Bend / C over the instructions instead of the
+  cycles, a rehearsal or a diagnosis counted as a release run, a count that fell drawn as one that grew, the marks
+  not focusable. 83 mutants, 77 caught, 6 expected to survive (I ran the four through the driver's own loop, not the
+  whole `make mutate`).
