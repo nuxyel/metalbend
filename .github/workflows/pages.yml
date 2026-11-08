@@ -1,0 +1,105 @@
+name: Dashboard
+
+# The dashboard at nuxyel.github.io/metalbend: scripts/dashboard.py draws it from results/ on main (my machine's
+# release runs) and from the data branch (the release watch, the bisects, the history). It is rebuilt after every run
+# of the release watch, the history and the bisect (they write the data branch), on a push to main that changes what
+# it reads, and by hand. It deploys only when the repository's Pages source is GitHub Actions; until then it builds the
+# site, runs its test and keeps the site as an artifact.
+on:
+  workflow_run:
+    workflows: ["Release watch", "History", "Bisect"]
+    types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - "results/**"
+      - "workloads/*/README.md"
+      - "oracles.tsv"
+      - "docs/upstream.tsv"
+      - "analyze.py"
+      - "scripts/dashboard.py"
+      - "scripts/dashboard.css"
+      - "scripts/chart.py"
+      - "scripts/history_chart.py"
+      - "scripts/history_report.py"
+      - "scripts/track_verdict.py"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dashboard
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: draw
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: read      # to ask whether Pages is on
+    outputs:
+      pages: ${{ steps.pages.outputs.on }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - uses: actions/checkout@v7
+        with:
+          ref: data
+          path: build/data-branch
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Test
+        run: python3 -I -m unittest discover -s tests -p test_dashboard.py -v
+
+      - name: Draw
+        run: python3 -I scripts/dashboard.py build/data-branch build/site
+
+      - name: Is Pages on
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          # Settings > Pages > Source: GitHub Actions. Until then the site stays an artifact of this run.
+          if source=$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq .build_type 2>/dev/null) && [ "$source" = workflow ]; then
+            echo "on=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "on=false" >> "$GITHUB_OUTPUT"
+            echo "Pages is not set to deploy from GitHub Actions: the site is this run's artifact, not deployed." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/upload-pages-artifact@v5
+        if: steps.pages.outputs.on == 'true'
+        with:
+          path: build/site
+
+      - uses: actions/upload-artifact@v7
+        if: steps.pages.outputs.on != 'true'
+        with:
+          name: dashboard
+          path: build/site
+
+  deploy:
+    name: deploy
+    needs: build
+    if: needs.build.outputs.pages == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
