@@ -668,3 +668,28 @@ An upstream draft is in my private notes. Upstream main still has both.
   rest under 1%), so the README keeps the launch run's numbers and adds `llama-token`'s.
 - `scripts/chart.py` has its label (and `tests/test_chart.py` counts sixteen); `docs/results-2.0.40.svg` is redrawn
   from this run.
+
+## 2026-11-07: the dashboard (`scripts/dashboard.py`, `.github/workflows/pages.yml`)
+
+- `scripts/dashboard.py <data> <out>` draws a static site from `results/` (the release runs, `<date>-<version>`
+  folders; a version two runs measured comes from the newer one) and the `data` branch (the newest `history/` folder,
+  `track/`, `track/regressions/`), plus `docs/upstream.tsv` for the issue I filed on a bisect's finding (#2081 and
+  #2082 for `bpe-encode` on 2.0.40). `index.html`: Bend / C in cycles on every release measured (2.0.38 for three
+  workloads from `results/2026-10-25-2.0.39`, 2.0.39 and 2.0.40 from `results/2026-11-06-2.0.40`), the corpus at a
+  glance, the history as fifteen small charts, the release watch's comparisons, the three bisects, how it measures
+  and its limits. `w/<workload>.html`: its numbers on my machine, its Cachegrind counts on every release, its release
+  watch rows and bisects, then its README. Inline SVG and HTML, a tooltip on every mark, light and dark, standard
+  library only; tables scroll in their own box at phone width.
+- The numbers are the raw files' own: Bend / C is `scripts/report.py`'s for every workload of the run of record
+  (`tests/test_dashboard.py` compares them), and the rest matches the README (Bend / C 1.09x-611x, the history's 127
+  counts and 8 gaps, the release watch's 12 improvements, 1 regression and 2 the same, the bisects' #1978, #2036 and
+  #1155).
+- Looked at in a headless browser at 1280 and 390 px wide, light and dark.
+- `.github/workflows/pages.yml` draws it after every run of `track.yml`, `history.yml` and `bisect.yml` (they write
+  the data branch; a push made with the workflow token starts no workflow, so it listens for their runs instead), on a
+  push to main that changes what it reads, and by hand. It deploys only when the repository's Pages source is GitHub
+  Actions; until then each run keeps the site as an artifact. `workflow_run` only fires from the default branch, so
+  none of it runs before a release.
+- `make dashboard` builds it here from `origin/data`. `make test`: 163 tests (6 new).
+- Left: a mutant for `dashboard.py` in `scripts/mutate.py` (its test already catches a Bend / C that is not
+  report.py's); cycles on releases before 2.0.38, which wait on the idle run of `scripts/history_cycles.sh`.
