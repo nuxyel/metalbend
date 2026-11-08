@@ -605,3 +605,17 @@ An upstream draft is in my private notes. Upstream main still has both.
 - PR #3, CI green, merged as 6324d5a, tag `v1.1.0`, GitHub release. `track.yml` is on main, so its daily run now
   checks bendlang/bend's tags; the `data` branch's `track/last-tag` is v2.0.40, so the first run that counts is
   2.0.41's. The throwaway "phase 0 probe" workflow is disabled.
+
+## 2026-11-08: the history's cycles on 2.0.32-2.0.34 (idle machine)
+
+- `scripts/history_cycles.sh` from `when_idle.sh` (01:14-01:28, preflight clean): 2.0.32, 2.0.33 and 2.0.34 built from
+  their tags, with 2.0.35 in the same rounds, 1 and 16 threads, 5 rounds, into `results/2026-11-08-2.0.32-2.0.34/`.
+  Its exit status is 1 because the oracle check counts the 8 missing runs of `read-bf16` and `read-binary` on 2.0.32
+  to 2.0.35, which do not build before 2.0.36; every other case matches `oracles.tsv`, and every workload gives the
+  same hash on the four releases.
+- One thread against 2.0.35: on 2.0.32 the four parallel-block workloads take +163% (`attention-step`) to +227%
+  (`gemm-fork`) cycles for +204% to +275% instructions, the #1155 change the Cachegrind history shows at 2.0.33;
+  2.0.33 and 2.0.34 are within 3% in cycles. `rmsnorm-step` takes 13-14% more cycles on 2.0.32-2.0.34 for 0.5% fewer
+  instructions, a move only cycles show. Nothing else moves beyond noise.
+- 16 threads: 2.0.35 runs `attention-step` in 0.237 s against 0.327-0.329 on 2.0.33/2.0.34, and `block-step` in 0.337
+  against 0.444-0.453, with the same one-thread time: a change in how the parallel blocks run, not in their work.
