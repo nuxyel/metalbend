@@ -4,7 +4,7 @@
     python3 -I scripts/dashboard.py <data> <out> <results>   # release runs from another folder than results/
 
 It reads:
-- `results/<date>-<version>/` (release.sh's runs, on my machine): one-thread instructions and cycles, Bend / C, the
+- `results/<date>-<version>/` (release.sh's runs, on my machine; `<date>-<from>-<to>` the history's cycles): one-thread instructions and cycles, Bend / C, the
   speedup on the run's most threads and the GPU targets' kernel time, medians as scripts/report.py takes them. A
   version measured by two release runs is shown from the newer one.
 - `history/` on the data branch (its newest folder): every workload's Cachegrind counts on every release.
@@ -37,7 +37,9 @@ from history_report import version_key  # noqa: E402
 from track_verdict import D1_LIMIT, IR_LIMIT  # noqa: E402
 
 REPO = "https://github.com/nuxyel/metalbend"
-RELEASE_RUN = re.compile(r"^\d{4}-\d{2}-\d{2}-(\d+\.\d+\.\d+)$")
+# release.sh's runs (results/<date>-2.0.40) and the history's cycles (results/<date>-2.0.32-2.0.34); not a rehearsal
+# or a diagnosis
+RELEASE_RUN = re.compile(r"^\d{4}-\d{2}-\d{2}-\d+\.\d+\.\d+(-\d+\.\d+\.\d+)?$")
 METRIC = {"ir": "instructions", "d1": "simulated D1 misses", "bits": "the output"}
 MINUS = "−"
 
@@ -471,7 +473,8 @@ def build(data, out, results=ROOT / "results"):
     shutil.copy(ROOT / "scripts" / "dashboard.css", out / "style.css")
     (out / ".nojekyll").write_text("")
 
-    newest = runs[-1] if runs else None
+    # the run that measured the newest version: its machine, threads and GPU are the ones the page describes
+    newest = next((r for r in reversed(runs) if versions and any(v == versions[-1] for _, v in r["cells"])), None)
     rel = h["releases"] if h else []
     dates = [r["env"].get("date", "") for r in runs] + [c["env"].get("date", "") for c in comparisons]
     dates += [e.get("date", "") for e in (h["env"] if h else [])]
@@ -498,7 +501,7 @@ def build(data, out, results=ROOT / "results"):
     b.append("<h2>Bend against C</h2>")
     if natives and now:
         b.append(f"<p>CPU cycles of Bend's build over the C twin's, one pinned thread on my machine ({esc(cpu)}), on "
-                 "every release my release runs measured; 1x would be C's speed. Each version comes from the newest "
+                 "every release my runs measured; 1x would be C's speed. Each version comes from the newest "
                  "release run that measured it: " +
                  "; ".join(f'<a href="{REPO}/tree/main/results/{esc(r["name"])}">{esc(r["name"])}</a>'
                            f' ({" and ".join(sorted({v for _, v in r["cells"]}, key=vkey))}, {esc(state(r))})'
@@ -613,7 +616,7 @@ def build(data, out, results=ROOT / "results"):
             b.append(f" <code>{esc(w)}</code> on {esc(new)}: {esc(bpe['range_change'])} the simulated D1 misses on "
                      f"the runner, {esc(minus(move(z['cyc'] / a['cyc'])))} cycles on my machine.")
     b.append("</li>")
-    b.append(f"<li>Real cycles exist for the releases my release runs measured ({esc(', '.join(versions))}); before "
+    b.append(f"<li>Real cycles exist for the releases my runs in results/ measured ({esc(', '.join(versions))}); before "
              "them the history is the runner's instruction counts.</li>")
     b.append(f"<li>{newest['threads'] if newest else 'Many'} threads and the GPU are measured only on my machine; "
              "the runners count one thread and have no GPU.</li>")

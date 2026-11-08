@@ -79,6 +79,12 @@ class Site(unittest.TestCase):
             self.assertEqual(round(cells[(w, "2.0.40")]["c_cyc"], 2), x, w)
             self.assertEqual(cells[(w, "2.0.40")]["run"], RUN.name)
 
+    def test_which_runs_count(self):
+        for name in ("2026-11-06-2.0.40", "2026-11-08-2.0.32-2.0.34", "2026-12-01-2.1.0"):
+            self.assertTrue(dashboard.RELEASE_RUN.match(name), name)
+        for name in ("2026-11-01-2.0.39-rehearsal", "2026-11-06-2.0.40-diagnosis", "2026-10-25-f"):
+            self.assertFalse(dashboard.RELEASE_RUN.match(name), name)
+
     def test_the_bend_c_chart(self):
         row = re.search(r'href="w/adamw.html">.*?<div class="val">([^<]*)</div>', self.index).group(1)
         self.assertEqual(row, "1.13x")
