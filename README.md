@@ -250,13 +250,27 @@ python3 -I scripts/history_report.py <folder>    # steps.tsv, coverage.tsv, repo
 python3 -I scripts/history_chart.py <folder>     # docs/history.svg
 ```
 
+## The dashboard
+
+`scripts/dashboard.py` draws all of the above as a static site: Bend against C on every release my release runs
+measured, the corpus at a glance, the history, the release watch's comparisons, what the bisect found, and a page for
+each workload with its counts on every release. No number in it is typed in: it reads `results/` on `main` and
+`track/` and `history/` on the `data` branch, and `docs/upstream.tsv` for the issue I filed on a bisect's finding.
+`.github/workflows/pages.yml` draws it again after every run of the release watch, the history and the bisect, and
+deploys it to GitHub Pages once the repository's Pages source is GitHub Actions; until then each run keeps the site as
+an artifact.
+
+```sh
+git fetch origin data && make dashboard    # build/site/index.html, from results/ and origin/data
+```
+
 ## Checks
 
 ```sh
 make setup     # Bend 2.0.40 (checked by SHA256), then clang and Python 3 checked
 make check     # every workload on 1 and 16 threads and every C target, against oracles.tsv
 make check-gpu # every GPU target on the GPU and with --gpu off on 1 and 16 threads; skips if there is no GPU
-make test      # analyze.py, scripts/chart.py, oracle_diff.py, run.sh's guard and PMU choice, the GPU lane's skip, release.sh on a fake upstream, count.sh, track_verdict.py, bisect.sh and the history's scripts on fakes
+make test      # analyze.py, scripts/chart.py, oracle_diff.py, run.sh's guard and PMU choice, the GPU lane's skip, release.sh on a fake upstream, count.sh, track_verdict.py, bisect.sh and the history's scripts on fakes, the dashboard on a synthetic data branch
 make laws      # the ten laws (with --verdict) and their 22 mutants, each refused
 make mutate    # break the corpus and the tools on purpose; every mutant must be caught
 ```
