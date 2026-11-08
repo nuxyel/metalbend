@@ -58,7 +58,7 @@ def tests(module):
 
 ANALYZE, CHART, GUARD = tests("test_analyze"), tests("test_chart"), tests("test_run_guard")
 COUNT, VERDICT = tests("test_count"), tests("test_track_verdict")
-BISECT = tests("test_bisect")
+BISECT, DASHBOARD = tests("test_bisect"), tests("test_dashboard")
 
 # (name, file, before, after, gate, expected): expected is "caught", or the reason the mutant may survive
 MUTANTS = [
@@ -277,6 +277,15 @@ MUTANTS = [
     ("bisect_report.py: the plan bisects an improvement", "scripts/bisect_report.py",
      'if r[col] != "-" and float(r[col]) > lim]', 'if r[col] != "-" and abs(float(r[col])) > lim]', BISECT,
      "caught"),
+    ("dashboard.py: Bend / C over the instructions", "scripts/dashboard.py",
+     'cell["c_cyc"] = cell["cyc"] / med(cyc[(w, "c")])', 'cell["c_cyc"] = cell["ins"] / med(ins[(w, "c")])', DASHBOARD,
+     "caught"),
+    ("dashboard.py: a rehearsal or a diagnosis counts as a release run", "scripts/dashboard.py",
+     r'(-\d+\.\d+\.\d+)?$")', r'(-\d+\.\d+\.\d+)?")', DASHBOARD, "caught"),
+    ("dashboard.py: a count that fell drawn as one that grew", "scripts/dashboard.py",
+     "if v < prev:", "if v > prev:", DASHBOARD, "caught"),
+    ("dashboard.py: the charts' marks cannot be reached without a mouse", "scripts/dashboard.py",
+     "return f'tabindex=\"0\" ", "return f'", DASHBOARD, "caught"),
 ]
 
 
