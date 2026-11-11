@@ -619,3 +619,8 @@ An upstream draft is in my private notes. Upstream main still has both.
   instructions, a move only cycles show. Nothing else moves beyond noise.
 - 16 threads: 2.0.35 runs `attention-step` in 0.237 s against 0.327-0.329 on 2.0.33/2.0.34, and `block-step` in 0.337
   against 0.444-0.453, with the same one-thread time: a change in how the parallel blocks run, not in their work.
+
+## Release v1.1.1: the history's cycles on 2.0.32-2.0.34 (2026-11-11)
+
+- PR #4, CI green, merged as bb9f5db, tag `v1.1.1`, GitHub release. A results patch: the entry above, in the README's
+  history section; the corpus, its oracles and its tools unchanged.
