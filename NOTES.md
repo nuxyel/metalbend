@@ -646,9 +646,12 @@ An upstream draft is in my private notes. Upstream main still has both.
   and values swapped, a query head on the next key/value head's cache, attention one key short, RoPE's sign, SiLU's
   sign, RMSNorm's squares added from the left, a softmax without its maximum: all caught. Swapping the operands of
   the residual's addition survives, as it must.
-- **Not measured yet.** A diagnosis with the machine in use, one thread pinned: 3.28 G instructions and about 0.81 G
-  cycles against the C target's 1.15 G and 0.48 G, so 2.9 times the instructions and about 1.7 times the cycles; 0.18
-  s against 0.10 s, and 0.09 to 0.10 s on 4 to 22 threads.
+- **Measured** the same day on an idle machine (19:12, nobody at it, in a round of measurements started after five
+  quiet minutes), outside `run.sh`: one thread pinned to CPU 3 and counted by `perf stat` in user mode, 5 alternated
+  rounds, medians. Bend 2.0.40 takes 3.282 G instructions and 0.841 G cycles (0.801 to 0.859) against the C target's
+  1.145 G and 0.481 G (0.473 to 0.483): 2.87 times the instructions and 1.75 times the cycles, 0.192 s against 0.119
+  s. On 4, 8, 16 and 22 threads it takes 0.099, 0.095, 0.105 and 0.109 s: threads halve the time and no more. All 30
+  runs print the oracle.
 - **Left for the release.** A run of record with it (its history starts at 2.0.40, the first release its package
   builds on), its label in `scripts/chart.py`, and the counts the README takes from the last run, which still say
   fifteen.
