@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/nuxyel/metalbend/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nuxyel/metalbend/actions/workflows/ci.yml)
 
-Fifteen real machine-learning workloads for Bend 2's compiler, run on every Bend release. Each one is checked by its
+Sixteen real machine-learning workloads for Bend 2's compiler, run on every Bend release. Each one is checked by its
 exact output and measured against a handwritten C program that prints the same bits, and when a release makes one
 slower, MetalBend finds the commit that did it.
 
@@ -18,9 +18,9 @@ slower, MetalBend finds the commit that did it.
   the BPE tokenizer.
 
 I cut the workloads from my three Bend projects (bend-ml, llama.bend and BendTorch): matrix products, a banded
-matrix-vector product, attention, normalization, an optimizer step, training steps, file reads, a tokenizer. GitHub's
-runners count each new release's instructions under Cachegrind, and my machine its cycles, 16 threads and the GPU, so
-a release that changes a workload's speed or its bits shows up as a number.
+matrix-vector product, attention, normalization, an optimizer step, training steps, file reads, a tokenizer, a Llama's
+whole token. GitHub's runners count each new release's instructions under Cachegrind, and my machine its cycles, 16
+threads and the GPU, so a release that changes a workload's speed or its bits shows up as a number.
 
 Renan Vinícius (@nuxyel).
 
@@ -61,6 +61,7 @@ The workloads import my published BendHub packages at pinned versions (`bend-ml-
 | `mnist-fork` | `mnist-step` with its products through tensor-fork 0.1.5.0 | yes (mnist-step's) | |
 | `read-bf16` | two SmolLM2-135M layers read as BF16 from a safetensors file with bendtorch-load | yes | |
 | `bpe-encode` | bend-ml-bpe-tokenizer: 256 merges trained, 32,768 words encoded to token ids | yes | |
+| `llama-token` | whole tokens of bend-ml-llama's forward pass through the key/value cache, at SmolLM2-135M's widths with 2 layers (since 2026-11-12; not in a run of record yet) | yes | |
 
 Each workload's `README.md` says what it computes, which published package it comes from, how its C target keeps
 the same bits, what its oracle hashes and which mutants it must catch.
