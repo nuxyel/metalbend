@@ -631,3 +631,24 @@ An upstream draft is in my private notes. Upstream main still has both.
   MetalBend has found, each in a line with its number, and the history's chart moves to the top; the corpus, its
   oracles and its tools unchanged. The same day the repository's description and topics changed to say what it does
   (the release watch, the bisect, the history from 2.0.32).
+
+## 2026-11-12: llama-token, the first workload of the second corpus
+
+- **What.** `workloads/llama-token`: 32 positions, one token each, through `bend-ml-llama@0.2.1.1`'s `forward_gen`
+  with the key/value cache, at SmolLM2-135M's widths with 2 layers and a vocabulary of 3,072 (the head is then a fifth
+  of a token's products, as in the 135M). The other workloads time a kernel or a training step; this one times a
+  token with everything around the products, the package's lists among them. The weights are `lib/mb.bend`'s values
+  by cell, so they do not depend on the bands, and the band depth follows the thread count as llama.bend's does.
+- **Bits.** It prints the hash of every position's logits; the oracle is `0a85f2fce42dcde7`, from Bend 2.0.40 on 1,
+  2, 4, 16 and 22 threads (one band up to two threads, 16 above) and from `native.c`, which repeats the package's
+  order of operations on arrays. `make check` runs it; `make test` passes.
+- **Mutants.** Ten new ones: one position fewer and the second layer's seeds (Bend), and in the C target the keys
+  and values swapped, a query head on the next key/value head's cache, attention one key short, RoPE's sign, SiLU's
+  sign, RMSNorm's squares added from the left, a softmax without its maximum: all caught. Swapping the operands of
+  the residual's addition survives, as it must.
+- **Not measured yet.** A diagnosis with the machine in use, one thread pinned: 3.28 G instructions and about 0.81 G
+  cycles against the C target's 1.15 G and 0.48 G, so 2.9 times the instructions and about 1.7 times the cycles; 0.18
+  s against 0.10 s, and 0.09 to 0.10 s on 4 to 22 threads.
+- **Left for the release.** A run of record with it (its history starts at 2.0.40, the first release its package
+  builds on), its label in `scripts/chart.py`, and the counts the README takes from the last run, which still say
+  fifteen.
