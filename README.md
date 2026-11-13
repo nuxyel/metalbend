@@ -1,9 +1,26 @@
 # MetalBend
 
-A corpus of real machine-learning workloads for Bend 2's compiler, run on every Bend release. I cut the workloads
-from my three Bend projects (bend-ml, llama.bend and BendTorch): matrix products, a banded matrix-vector product,
-attention, normalization, an optimizer step, training steps, file reads, a tokenizer. Each one is checked by its exact
-output and timed by hardware counters, so a release that changes a workload's speed or its bits shows up as a number.
+[![CI](https://github.com/nuxyel/metalbend/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nuxyel/metalbend/actions/workflows/ci.yml)
+
+Fifteen real machine-learning workloads for Bend 2's compiler, run on every Bend release. Each one is checked by its
+exact output and measured against a handwritten C program that prints the same bits, and when a release makes one
+slower, MetalBend finds the commit that did it.
+
+![Fifteen small line charts, one per workload, of its instructions on Bend 2.0.32 to 2.0.40 against the first release it builds on. The parallel matrix product, the parallel MNIST step, the transformer block and attention drop by 67-74% at 2.0.33 and stay there; softmax and cross-entropy drops 59% at 2.0.39; the MNIST step falls 34% over 2.0.39 and 2.0.40; the BF16 read 24% from 2.0.36, most of it at 2.0.40; RMSNorm 16%; the BPE tokenizer falls 8% at 2.0.36 and rises 9% at 2.0.40, ending 1.2% above 2.0.32; the two file reads do not move.](docs/history.svg)
+
+- **Every release, counted by itself.** Bend 2.0.40 runs fewer instructions than 2.0.39 on 12 of the 15 workloads and
+  more on one, the BPE tokenizer (+9.42%, 2.03x the L1 data misses). The bisect found the two commits behind it,
+  bendlang/bend#1978 and #2036, in 7 and 6 steps over 118 commits.
+- **Nine releases of history.** From 2.0.32 to 2.0.40 no release changed a bit of any output. 2.0.33 cut the four
+  parallel-block workloads to 0.26-0.33x the instructions (bendlang/bend#1155).
+- **The distance to C.** On 2.0.40, from 1.09x C's cycles (softmax and cross-entropy over the array) and 1.13x (the
+  AdamW step) to 2.50x (RMSNorm) and 4.47x (softmax and cross-entropy); 19x for the built-in file read and 611x for
+  the BPE tokenizer.
+
+I cut the workloads from my three Bend projects (bend-ml, llama.bend and BendTorch): matrix products, a banded
+matrix-vector product, attention, normalization, an optimizer step, training steps, file reads, a tokenizer. GitHub's
+runners count each new release's instructions under Cachegrind, and my machine its cycles, 16 threads and the GPU, so
+a release that changes a workload's speed or its bits shows up as a number.
 
 Renan Vinícius (@nuxyel).
 
@@ -198,8 +215,6 @@ The same counts, back to Bend 2.0.32: `.github/workflows/history.yml` counts eve
 Before 2.0.32 the older checker cannot check the published packages' proofs, so only `read-native` builds there; the
 history starts at 2.0.32, and the workloads are not adapted to older releases. All 127 counts print their oracle: no
 release from 2.0.32 on changed a bit of any workload's output.
-
-![Fifteen small line charts, one per workload, of its instructions on Bend 2.0.32 to 2.0.40 against the first release it builds on. The parallel matrix product, the parallel MNIST step, the transformer block and attention drop by 67-74% at 2.0.33 and stay there; softmax and cross-entropy drops 59% at 2.0.39; the MNIST step falls 34% over 2.0.39 and 2.0.40; the BF16 read 24% from 2.0.36, most of it at 2.0.40; RMSNorm 16%; the BPE tokenizer falls 8% at 2.0.36 and rises 9% at 2.0.40, ending 1.2% above 2.0.32; the two file reads do not move.](docs/history.svg)
 
 | release | fewer instructions | more | unchanged | biggest moves |
 |---|---:|---:|---:|---|
