@@ -624,3 +624,10 @@ An upstream draft is in my private notes. Upstream main still has both.
 
 - PR #4, CI green, merged as bb9f5db, tag `v1.1.1`, GitHub release. A results patch: the entry above, in the README's
   history section; the corpus, its oracles and its tools unchanged.
+
+## Release v1.1.2: the README opens with what MetalBend found (2026-11-12)
+
+- PR #5, CI green, merged as 7be64f5, tag `v1.1.2`, GitHub release. A documentation patch: the README opens with what
+  MetalBend has found, each in a line with its number, and the history's chart moves to the top; the corpus, its
+  oracles and its tools unchanged. The same day the repository's description and topics changed to say what it does
+  (the release watch, the bisect, the history from 2.0.32).
