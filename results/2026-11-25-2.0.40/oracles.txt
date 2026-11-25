@@ -1,0 +1,1 @@
+oracles: 86 cases, every hash is its oracle
