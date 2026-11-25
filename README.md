@@ -293,6 +293,10 @@ On Bend 2.0.35-2.0.40 (`NOTES.md` has each finding with its date and result fold
   For the matrix-vector product the main cause is the `and` with the array's mask that every `Array.get` keeps
   (`repros/dot_mask.bend`, bendlang/bend#1781); for `softmax-ce` it is tensor-array walking each row as a list (fixed
   in tensor-array 0.1.17.0, which this corpus measured first).
+- **A whole Llama token** (`llama-token`, the sixteenth workload, `results/2026-11-25-2.0.40/`, all 86 cases their
+  oracles): 32 positions of bend-ml-llama's forward pass through the key/value cache take 1.67x the C target's cycles
+  and 2.87x its instructions on 2.0.40, which runs it in 6.4% fewer instructions than 2.0.39. On 16 threads it is
+  1.77x faster than on one.
 - **Threads**, on 2.0.40 (`results/2026-11-06-2.0.40/`): every workload gives the same bytes at 1 and 16 threads. At
   16 threads `matvec-bands` runs 4.86x faster, `block-step` 4.66x, `attention-step` 4.06x and `gemm-fork` 2.24x;
   `mnist-fork` gains 1.17x and `mnist-step` 1.10x. `gemm-tile8` (0.98x) is tensor-array's sequential product
