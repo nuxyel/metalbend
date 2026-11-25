@@ -43,6 +43,7 @@ LABELS = {
     "mnist-fork": "MNIST training step, parallel blocks",
     "read-bf16": "14 MB BF16 safetensors read",
     "bpe-encode": "BPE tokenizer, train and encode",
+    "llama-token": "Llama token through the cache",
 }
 NOTES = {
     "gemm-tile8": "a sequential loop by design",
