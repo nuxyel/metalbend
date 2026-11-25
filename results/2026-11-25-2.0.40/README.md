@@ -7,5 +7,6 @@ with `AGENTS_IDLE_OK=1` (load 0.02, one Claude Code session open and idle, CPU 3
 `performance` profile). Every hash its oracle in `oracles.tsv` (86 cases).
 
 The numbers are in `report.md`, `summary.md` and `probe-1781.tsv`; `llama-token`'s line is in `NOTES.md`
-(2026-11-25) and the README's "What it has found". The other fifteen workloads repeat the launch run's within its
-noise; the README's other numbers stay the launch run's.
+(2026-11-25) and the README's "What it has found". The other fifteen workloads repeat the launch run's 2.0.40
+cycles within 3% (`read-native` 2.9%, `matvec-bands` 1.5%, the rest under 1%); the README's other numbers stay the
+launch run's.
