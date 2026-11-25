@@ -655,3 +655,16 @@ An upstream draft is in my private notes. Upstream main still has both.
 - **Left for the release.** A run of record with it (its history starts at 2.0.40, the first release its package
   builds on), its label in `scripts/chart.py`, and the counts the README takes from the last run, which still say
   fifteen.
+
+## 2026-11-25: llama-token's run of record (idle machine)
+
+- `scripts/launch.sh 2.0.40` again, now with the sixteen workloads (`results/2026-11-25-2.0.40/`), started by
+  `scripts/when_idle.sh` after five quiet minutes. Every hash its oracle (86 cases). `llama-token` builds on 2.0.39 too,
+  with the same hash, so its line has both releases.
+- `llama-token` on one thread: 2.0.40 runs it in 6.41% fewer instructions than 2.0.39 (2.29% fewer cycles); against
+  its C target 1.67x the cycles and 2.87x the instructions (2.0.39: 1.70x and 3.06x). On 16 threads 1.77x faster than
+  on one, on both releases. The idle measurement of 2026-11-12 (outside `run.sh`) gave 1.75x and 2.87x.
+- The other fifteen repeat the launch run's 2.0.40 cycles within 3% (`read-native` +2.9%, `matvec-bands` +1.5%, the
+  rest under 1%), so the README keeps the launch run's numbers and adds `llama-token`'s.
+- `scripts/chart.py` has its label (and `tests/test_chart.py` counts sixteen); `docs/results-2.0.40.svg` is redrawn
+  from this run.
