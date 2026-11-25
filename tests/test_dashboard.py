@@ -10,7 +10,7 @@ from synth import ROOT
 import report
 import dashboard
 
-RUN = ROOT / "results" / "2026-11-06-2.0.40"
+RUN = ROOT / "results" / "2026-11-25-2.0.40"
 HEAD = "ref\tcommit\tversion\tworkload\tir\td1_misses\tll_misses\thash\tbits\tclang\tvalgrind"
 
 
@@ -74,7 +74,7 @@ class Site(unittest.TestCase):
                   if r[0] != "workload" and not r[0].startswith("---")}
         _, cells, versions = dashboard.real_counts(ROOT / "results")
         self.assertEqual(versions[-1], "2.0.40")
-        self.assertEqual(len(theirs), 15)
+        self.assertEqual(len(theirs), 16)
         for w, x in theirs.items():
             self.assertEqual(round(cells[(w, "2.0.40")]["c_cyc"], 2), x, w)
             self.assertEqual(cells[(w, "2.0.40")]["run"], RUN.name)
@@ -87,7 +87,7 @@ class Site(unittest.TestCase):
 
     def test_the_bend_c_chart(self):
         row = re.search(r'href="w/adamw.html">.*?<div class="val">([^<]*)</div>', self.index).group(1)
-        self.assertEqual(row, "1.13x")
+        self.assertEqual(row, "1.14x")
         self.assertIn("results/2026-10-25-2.0.39", self.index)   # where 2.0.38 comes from
         self.assertIn("idle by the preflight", self.index)
 
@@ -110,7 +110,7 @@ class Site(unittest.TestCase):
         self.assertEqual(sorted(p.stem for p in (self.site / "w").glob("*.html")), names)
         bpe = (self.site / "w" / "bpe-encode.html").read_text()
         self.assertIn("<h3>The C target</h3>", bpe)
-        self.assertIn("611x", bpe)
+        self.assertIn("608x", bpe)
 
     def test_every_mark_without_a_mouse(self):
         # every chart mark is focusable and carries its numbers for site.js and for screen readers; no mark keeps a
@@ -123,7 +123,7 @@ class Site(unittest.TestCase):
             self.assertIn('tabindex="0"', m, m)
             self.assertTrue(tip, m)
             self.assertIn(f'aria-label="{tip.group(1)}"', m, m)
-        self.assertIn('data-tip="adamw on Bend 2.0.40: 1.13x C&#x27;s cycles', self.index)
+        self.assertIn('data-tip="adamw on Bend 2.0.40: 1.14x C&#x27;s cycles', self.index)
         self.assertIn('data-tip="2.0.40: 900 instructions, −10.00% against 2.0.38', self.index)
         self.assertIn('data-tip="not counted on 2.0.38"', self.index)
         for t in pages:
