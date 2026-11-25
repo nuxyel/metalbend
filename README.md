@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/nuxyel/metalbend/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nuxyel/metalbend/actions/workflows/ci.yml)
 
-Fifteen real machine-learning workloads for Bend 2's compiler, run on every Bend release. Each one is checked by its
+Sixteen real machine-learning workloads for Bend 2's compiler, run on every Bend release. Each one is checked by its
 exact output and measured against a handwritten C program that prints the same bits, and when a release makes one
 slower, MetalBend finds the commit that did it.
 
@@ -18,9 +18,9 @@ slower, MetalBend finds the commit that did it.
   the BPE tokenizer.
 
 I cut the workloads from my three Bend projects (bend-ml, llama.bend and BendTorch): matrix products, a banded
-matrix-vector product, attention, normalization, an optimizer step, training steps, file reads, a tokenizer. GitHub's
-runners count each new release's instructions under Cachegrind, and my machine its cycles, 16 threads and the GPU, so
-a release that changes a workload's speed or its bits shows up as a number.
+matrix-vector product, attention, normalization, an optimizer step, training steps, file reads, a tokenizer, a Llama's
+whole token. GitHub's runners count each new release's instructions under Cachegrind, and my machine its cycles, 16
+threads and the GPU, so a release that changes a workload's speed or its bits shows up as a number.
 
 Renan Vinícius (@nuxyel).
 
@@ -61,6 +61,7 @@ The workloads import my published BendHub packages at pinned versions (`bend-ml-
 | `mnist-fork` | `mnist-step` with its products through tensor-fork 0.1.5.0 | yes (mnist-step's) | |
 | `read-bf16` | two SmolLM2-135M layers read as BF16 from a safetensors file with bendtorch-load | yes | |
 | `bpe-encode` | bend-ml-bpe-tokenizer: 256 merges trained, 32,768 words encoded to token ids | yes | |
+| `llama-token` | whole tokens of bend-ml-llama's forward pass through the key/value cache, at SmolLM2-135M's widths with 2 layers (since 2026-11-12; not in a run of record yet) | yes | |
 
 Each workload's `README.md` says what it computes, which published package it comes from, how its C target keeps
 the same bits, what its oracle hashes and which mutants it must catch.
@@ -249,21 +250,36 @@ python3 -I scripts/history_report.py <folder>    # steps.tsv, coverage.tsv, repo
 python3 -I scripts/history_chart.py <folder>     # docs/history.svg
 ```
 
+## The dashboard
+
+`scripts/dashboard.py` draws all of the above as a static site: Bend against C on every release my release runs
+measured, the corpus at a glance, the history, the release watch's comparisons, what the bisect found, and a page for
+each workload with its counts on every release. No number in it is typed in: it reads `results/` on `main` and
+`track/` and `history/` on the `data` branch, and `docs/upstream.tsv` for the issue I filed on a bisect's finding.
+Every mark on its charts gives its numbers on hover, on a tap and from the keyboard (Tab).
+`.github/workflows/pages.yml` draws it again after every run of the release watch, the history and the bisect, and
+deploys it to GitHub Pages once the repository's Pages source is GitHub Actions; until then each run keeps the site as
+an artifact.
+
+```sh
+git fetch origin data && make dashboard    # build/site/index.html, from results/ and origin/data
+```
+
 ## Checks
 
 ```sh
 make setup     # Bend 2.0.40 (checked by SHA256), then clang and Python 3 checked
 make check     # every workload on 1 and 16 threads and every C target, against oracles.tsv
 make check-gpu # every GPU target on the GPU and with --gpu off on 1 and 16 threads; skips if there is no GPU
-make test      # analyze.py, scripts/chart.py, oracle_diff.py, run.sh's guard and PMU choice, the GPU lane's skip, release.sh on a fake upstream, count.sh, track_verdict.py, bisect.sh and the history's scripts on fakes
+make test      # analyze.py, scripts/chart.py, oracle_diff.py, run.sh's guard and PMU choice, the GPU lane's skip, release.sh on a fake upstream, count.sh, track_verdict.py, bisect.sh and the history's scripts on fakes, the dashboard on a synthetic data branch
 make laws      # the ten laws (with --verdict) and their 22 mutants, each refused
 make mutate    # break the corpus and the tools on purpose; every mutant must be caught
 ```
 
 `oracles.tsv` holds each workload's hash, as `run.sh` records it, from a run where every version and every C target
 printed it. CI runs all but `make check-gpu` on every push, bits only (GitHub's runners cannot count with `perf`, and
-have no GPU). `make check-gpu` is local: with no toolkit or no GPU it says why and passes. `make mutate` has 79
-mutants: 73 caught, and 6 that survive with their reason written next to them (five compute the same bits, one changes
+have no GPU). `make check-gpu` is local: with no toolkit or no GPU it says why and passes. `make mutate` has 93
+mutants: 86 caught, and 7 that survive with their reason written next to them (six compute the same bits, one changes
 what no run reaches). The three block workloads print a hash of their final weights and AdamW moments after the
 losses, so one rounding changed inside a layer (SiLU's, say) is caught even when every loss keeps its bits.
 
@@ -292,6 +308,10 @@ On Bend 2.0.35-2.0.40 (`NOTES.md` has each finding with its date and result fold
   For the matrix-vector product the main cause is the `and` with the array's mask that every `Array.get` keeps
   (`repros/dot_mask.bend`, bendlang/bend#1781); for `softmax-ce` it is tensor-array walking each row as a list (fixed
   in tensor-array 0.1.17.0, which this corpus measured first).
+- **A whole Llama token** (`llama-token`, the sixteenth workload, `results/2026-11-25-2.0.40/`, all 86 cases their
+  oracles): 32 positions of bend-ml-llama's forward pass through the key/value cache take 1.67x the C target's cycles
+  and 2.87x its instructions on 2.0.40, which runs it in 6.4% fewer instructions than 2.0.39. On 16 threads it is
+  1.77x faster than on one.
 - **Threads**, on 2.0.40 (`results/2026-11-06-2.0.40/`): every workload gives the same bytes at 1 and 16 threads. At
   16 threads `matvec-bands` runs 4.86x faster, `block-step` 4.66x, `attention-step` 4.06x and `gemm-fork` 2.24x;
   `mnist-fork` gains 1.17x and `mnist-step` 1.10x. `gemm-tile8` (0.98x) is tensor-array's sequential product

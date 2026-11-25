@@ -624,3 +624,92 @@ An upstream draft is in my private notes. Upstream main still has both.
 
 - PR #4, CI green, merged as bb9f5db, tag `v1.1.1`, GitHub release. A results patch: the entry above, in the README's
   history section; the corpus, its oracles and its tools unchanged.
+
+## Release v1.1.2: the README opens with what MetalBend found (2026-11-12)
+
+- PR #5, CI green, merged as 7be64f5, tag `v1.1.2`, GitHub release. A documentation patch: the README opens with what
+  MetalBend has found, each in a line with its number, and the history's chart moves to the top; the corpus, its
+  oracles and its tools unchanged. The same day the repository's description and topics changed to say what it does
+  (the release watch, the bisect, the history from 2.0.32).
+
+## 2026-11-12: llama-token, the first workload of the second corpus
+
+- **What.** `workloads/llama-token`: 32 positions, one token each, through `bend-ml-llama@0.2.1.1`'s `forward_gen`
+  with the key/value cache, at SmolLM2-135M's widths with 2 layers and a vocabulary of 3,072 (the head is then a fifth
+  of a token's products, as in the 135M). The other workloads time a kernel or a training step; this one times a
+  token with everything around the products, the package's lists among them. The weights are `lib/mb.bend`'s values
+  by cell, so they do not depend on the bands, and the band depth follows the thread count as llama.bend's does.
+- **Bits.** It prints the hash of every position's logits; the oracle is `0a85f2fce42dcde7`, from Bend 2.0.40 on 1,
+  2, 4, 16 and 22 threads (one band up to two threads, 16 above) and from `native.c`, which repeats the package's
+  order of operations on arrays. `make check` runs it; `make test` passes.
+- **Mutants.** Ten new ones: one position fewer and the second layer's seeds (Bend), and in the C target the keys
+  and values swapped, a query head on the next key/value head's cache, attention one key short, RoPE's sign, SiLU's
+  sign, RMSNorm's squares added from the left, a softmax without its maximum: all caught. Swapping the operands of
+  the residual's addition survives, as it must.
+- **Measured** the same day on an idle machine (19:12, nobody at it, in a round of measurements started after five
+  quiet minutes), outside `run.sh`: one thread pinned to CPU 3 and counted by `perf stat` in user mode, 5 alternated
+  rounds, medians. Bend 2.0.40 takes 3.282 G instructions and 0.841 G cycles (0.801 to 0.859) against the C target's
+  1.145 G and 0.481 G (0.473 to 0.483): 2.87 times the instructions and 1.75 times the cycles, 0.192 s against 0.119
+  s. On 4, 8, 16 and 22 threads it takes 0.099, 0.095, 0.105 and 0.109 s: threads halve the time and no more. All 30
+  runs print the oracle.
+- **Left for the release.** A run of record with it (its history starts at 2.0.40, the first release its package
+  builds on), its label in `scripts/chart.py`, and the counts the README takes from the last run, which still say
+  fifteen.
+
+## 2026-11-25: llama-token's run of record (idle machine)
+
+- `scripts/launch.sh 2.0.40` again, now with the sixteen workloads (`results/2026-11-25-2.0.40/`), started by
+  `scripts/when_idle.sh` after five quiet minutes. Every hash its oracle (86 cases). `llama-token` builds on 2.0.39 too,
+  with the same hash, so its line has both releases.
+- `llama-token` on one thread: 2.0.40 runs it in 6.41% fewer instructions than 2.0.39 (2.29% fewer cycles); against
+  its C target 1.67x the cycles and 2.87x the instructions (2.0.39: 1.70x and 3.06x). On 16 threads 1.77x faster than
+  on one, on both releases. The idle measurement of 2026-11-12 (outside `run.sh`) gave 1.75x and 2.87x.
+- The other fifteen repeat the launch run's 2.0.40 cycles within 3% (`read-native` +2.9%, `matvec-bands` +1.5%, the
+  rest under 1%), so the README keeps the launch run's numbers and adds `llama-token`'s.
+- `scripts/chart.py` has its label (and `tests/test_chart.py` counts sixteen); `docs/results-2.0.40.svg` is redrawn
+  from this run.
+
+## 2026-11-07: the dashboard (`scripts/dashboard.py`, `.github/workflows/pages.yml`)
+
+- `scripts/dashboard.py <data> <out>` draws a static site from `results/` (the release runs, `<date>-<version>`
+  folders, and the history's cycles, `<date>-<from>-<to>`; not a rehearsal or a diagnosis; a version two runs measured
+  comes from the newer one) and the `data` branch (the newest `history/` folder,
+  `track/`, `track/regressions/`), plus `docs/upstream.tsv` for the issue I filed on a bisect's finding (#2081 and
+  #2082 for `bpe-encode` on 2.0.40). `index.html`: Bend / C in cycles on every release measured (2.0.38 for three
+  workloads from `results/2026-10-25-2.0.39`, 2.0.39 and 2.0.40 from `results/2026-11-06-2.0.40`), the corpus at a
+  glance, the history as fifteen small charts, the release watch's comparisons, the three bisects, how it measures
+  and its limits. `w/<workload>.html`: its numbers on my machine, its Cachegrind counts on every release, its release
+  watch rows and bisects, then its README. Inline SVG and HTML, a tooltip on every mark, light and dark, standard
+  library only; tables scroll in their own box at phone width.
+- The numbers are the raw files' own: Bend / C is `scripts/report.py`'s for every workload of the run of record
+  (`tests/test_dashboard.py` compares them), and the rest matches the README (Bend / C 1.09x-611x, the history's 127
+  counts and 8 gaps, the release watch's 12 improvements, 1 regression and 2 the same, the bisects' #1978, #2036 and
+  #1155).
+- Looked at in a headless browser at 1280 and 390 px wide, light and dark.
+- `.github/workflows/pages.yml` draws it after every run of `track.yml`, `history.yml` and `bisect.yml` (they write
+  the data branch; a push made with the workflow token starts no workflow, so it listens for their runs instead), on a
+  push to main that changes what it reads, and by hand. It deploys only when the repository's Pages source is GitHub
+  Actions; until then each run keeps the site as an artifact. `workflow_run` only fires from the default branch, so
+  none of it runs before a release.
+- `make dashboard` builds it here from `origin/data`. `make test`: 164 tests (7 new).
+- Left: a mutant for `dashboard.py` in `scripts/mutate.py` (its test already catches a Bend / C that is not
+  report.py's); cycles on 2.0.32-2.0.35, which wait on the idle run of `scripts/history_cycles.sh` and will show
+  here as they land in `results/`.
+
+## 2026-11-08: the dashboard without a mouse, and its mutants
+
+- Every chart mark (a Bend / C dot, a history point, a band where a workload does not build) carries its numbers in
+  `data-tip` and the same text in `aria-label`, and is focusable. `scripts/dashboard.js`, copied into the site as
+  `site.js`, shows them on hover, on keyboard focus and on a tap; a tap elsewhere, Escape or a resize hides them. The
+  native `<title>` tooltips are gone, since a phone never shows them. A history card's link is now its header, so a
+  tap on a point shows its numbers instead of opening the workload's page. The dots have a finger-sized target.
+- Checked in a headless browser at 390 px with touch: a tap on a dot and on a point opens its tooltip and the page
+  stays, a tap elsewhere closes it; Tab to a dot opens it, Escape closes it.
+- `tests/test_dashboard.py`: one more test (every mark focusable, with the same numbers in `data-tip` and
+  `aria-label`, no `<title>` left in the body, `site.js` on every page). `make test`: 165 tests.
+- `make mutate`: four mutants of `dashboard.py`, all caught by its test: Bend / C over the instructions instead of the
+  cycles, a rehearsal or a diagnosis counted as a release run, a count that fell drawn as one that grew, the marks
+  not focusable. 83 mutants, 77 caught, 6 expected to survive (I ran the four through the driver's own loop, not the
+  whole `make mutate`).
+- Rebased onto devel after `results/2026-11-08-2.0.32-2.0.34/` landed: the page lists it among the release runs
+  (2.0.32 to 2.0.35, idle by the preflight), so the 2.0.32-2.0.35 cycles left above are in. `make test` passes.
